@@ -1,0 +1,119 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model RuntimeState {
+  id        String   @id
+  payload   Json
+  updatedAt DateTime @updatedAt
+}
+
+enum IntegrationStatus {
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  DUPLICATE
+}
+
+enum RecommendationStatus {
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  VERIFIED
+}
+
+model IntegrationSource {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique
+  name        String
+  enabled     Boolean  @default(true)
+  lastSeenAt  DateTime?
+  jobs        IntegrationJob[]
+}
+
+model IntegrationJob {
+  id             String            @id @default(uuid())
+  sourceId       Int
+  source         IntegrationSource @relation(fields: [sourceId], references: [id])
+  operation      String
+  method         String
+  idempotencyKey String            @unique
+  status         IntegrationStatus @default(PROCESSING)
+  recordCount    Int               @default(0)
+  startedAt      DateTime          @default(now())
+  endedAt        DateTime?
+  error          Json?
+  logs           IntegrationLog[]
+}
+
+model IntegrationLog {
+  id        String   @id @default(uuid())
+  jobId     String
+  job       IntegrationJob @relation(fields: [jobId], references: [id])
+  level     String
+  message   String
+  details   Json?
+  createdAt DateTime @default(now())
+}
+
+model ExternalReference {
+  id          String @id @default(uuid())
+  sourceCode  String
+  entityType  String
+  externalId  String
+  internalId  String
+  sourceMeta  Json?
+  @@unique([sourceCode, entityType, externalId])
+}
+
+model AiStudentAnalysis {
+  id                 String   @id @default(uuid())
+  studentId          String
+  strengths          Json
+  gaps               Json
+  trend              String
+  recommendedDomains Json
+  modelVersion       String
+  advisoryOnly       Boolean  @default(true)
+  generatedAt        DateTime @default(now())
+  @@index([studentId, generatedAt])
+}
+
+model AgentRun {
+  id          String   @id @default(uuid())
+  cycleId     Int?
+  state       String
+  context     Json
+  startedAt   DateTime @default(now())
+  completedAt DateTime?
+  recommendations AgentRecommendation[]
+}
+
+model AgentRecommendation {
+  id                String   @id @default(uuid())
+  runId             String
+  run               AgentRun @relation(fields: [runId], references: [id])
+  studentId         String
+  recommendedDomain String
+  rationale         Json
+  conflicts         Json
+  status            RecommendationStatus @default(PENDING_APPROVAL)
+  approvedBy        String?
+  approvedAt        DateTime?
+  verifiedAt        DateTime?
+}
+
+model ReportSnapshot {
+  id          String   @id @default(uuid())
+  reportType  String
+  cycleId     Int?
+  filters     Json?
+  totals      Json
+  storagePath String?
+  createdAt   DateTime @default(now())
+}

@@ -18,3 +18,6 @@ __pycache__/
 .pytest_cache/
 .venv/
 venv/
+*.tsbuildinfo
+data/runtime-state.json
+data/runtime-state.json.tmp

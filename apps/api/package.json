@@ -1,0 +1,42 @@
+{
+  "name": "@project9/api",
+  "private": true,
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/main.js",
+    "test": "jest --runInBand",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "postinstall": "prisma generate --schema prisma/schema.prisma"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.1.6",
+    "@nestjs/core": "^11.1.6",
+    "@nestjs/platform-express": "^11.1.6",
+    "@nestjs/swagger": "^11.2.0",
+    "@prisma/client": "6.12.0",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.2",
+    "cors": "^2.8.5",
+    "exceljs": "^4.4.0",
+    "multer": "^2.0.2",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "uuid": "^11.1.1"
+  },
+  "devDependencies": {
+    "@nestjs/testing": "^11.1.6",
+    "@types/jest": "^29.5.14",
+    "@types/multer": "^2.0.0",
+    "@types/node": "^24.5.2",
+    "@types/supertest": "^6.0.3",
+    "jest": "^29.7.0",
+    "prisma": "6.12.0",
+    "supertest": "^7.1.4",
+    "ts-jest": "^29.4.4",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2"
+  }
+}

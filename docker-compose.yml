@@ -1,19 +1,47 @@
 services:
   postgres:
     image: postgres:16-alpine
-    restart: unless-stopped
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: project9
+      POSTGRES_PASSWORD: project9
       POSTGRES_DB: project9
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-  redis:
-    image: redis:7-alpine
-    restart: unless-stopped
-    ports:
-      - "6379:6379"
+    ports: ["5432:5432"]
+    volumes: ["project9_pg:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U project9"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  ai:
+    build: ./services/ai
+    ports: ["8000:8000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://project9:project9@postgres:5432/project9?schema=public
+      AI_SERVICE_URL: http://ai:8000
+      PORT: 3000
+      WEB_ORIGIN: http://localhost:5173
+      PERSISTENCE_DRIVER: postgres
+      DEMO_MODE: "true"
+    ports: ["3000:3000"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      ai: { condition: service_healthy }
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    environment:
+      VITE_API_URL: http://localhost:3000/api
+    ports: ["5173:80"]
+    depends_on: [api]
 volumes:
-  postgres_data:
+  project9_pg:
