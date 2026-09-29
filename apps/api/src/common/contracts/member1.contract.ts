@@ -13,6 +13,9 @@ export interface SelectionResultContract {
   decisionReference: string;
   evaluatedAt: Date | string;
   criteriaSummary?: Record<string, any>;
+  source?: 'LIVE' | 'SNAPSHOT';
+  snapshotId?: string;
+  snapshotVersion?: number;
 }
 
 export interface EligibilityResultContract {
@@ -36,4 +39,22 @@ export interface RankingResultContract {
   rank: number;
   percentile?: number;
   calculatedAt: Date | string;
+}
+
+export interface ClassificationResultContract {
+  studentId: string;
+  selectionCycleId: string;
+  program: string;
+  rank: number;
+  status: string;
+  classifiedAt: Date | string;
+  source?: 'LIVE' | 'SNAPSHOT';
+  snapshotId?: string;
+  snapshotVersion?: number;
+}
+
+export interface SelectionAuthorityContract {
+  source: 'LIVE' | 'SNAPSHOT';
+  snapshotId?: string;
+  snapshotVersion?: number;
 }
