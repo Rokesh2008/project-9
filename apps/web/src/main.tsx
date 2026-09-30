@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { AllocationAdmin } from './AllocationAdmin';
 import './styles.css';
 import './extras.css';
 
@@ -20,6 +21,7 @@ type Student = { studentId: string; registerNumber: string; name: string; progra
 type Anomaly = { studentId: string; severity: string; type: string; detail: string };
 
 function App() {
+  const [view, setView] = useState<'member3' | 'allocations'>('member3');
   const [summary, setSummary] = useState<Summary>({ totalStudents: 0, interviewEligible: 0, selected: 0, allocated: 0, integrationFailures: 0 });
   const [logs, setLogs] = useState<Log[]>([]);
   const [capacities, setCapacities] = useState<Capacity[]>([]);
@@ -110,6 +112,14 @@ function App() {
   const topCapacity = useMemo(() => capacities.slice().sort((a, b) => b.demand - a.demand).slice(0, 6), [capacities]);
   const maxCapacity = Math.max(1, ...topCapacity.map((item) => item.capacity));
 
+  if (view === 'allocations') return <div style={{ minHeight: '100vh', background: '#fff' }}>
+    <div style={{ display: 'flex', gap: 12, padding: '12px 24px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+      <button onClick={() => setView('member3')} style={{ padding: '6px 16px', background: 'transparent', border: '1px solid #d1d5db', borderRadius: 6, cursor: 'pointer', fontSize: 13 }}>← Back to Command Center</button>
+      <span style={{ fontWeight: 700, lineHeight: '32px' }}>Member 2 – Allocation Workflow</span>
+    </div>
+    <AllocationAdmin />
+  </div>;
+
   return <div className="shell">
     <aside>
       <div className="brand"><span>P9</span><div><strong>Selection OS</strong><small>Member 3 · Command Center</small></div></div>
@@ -119,6 +129,7 @@ function App() {
         <a href="#students">Student intelligence</a>
         <a href="#intelligence">AI intelligence</a>
         <a href="#capacity">Capacity analytics</a>
+        <a href="#" onClick={(e) => { e.preventDefault(); setView('allocations'); }}>Allocation workflow</a>
       </nav>
       <div className="guardrail"><b>Advisory boundary</b><p>AI can recommend and explain. Only an authorized approval can change allocation.</p></div>
     </aside>
