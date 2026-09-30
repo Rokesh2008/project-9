@@ -1,10 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { AllocationAdmin } from './AllocationAdmin';
+import { API, TOKEN_KEY, apiFetch, clearSession } from './api';
 import './styles.css';
 import './extras.css';
-
-const API = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api';
 
 type Summary = {
   totalStudents: number;
@@ -12,6 +11,7 @@ type Summary = {
   selected: number;
   allocated: number;
   integrationFailures: number;
+  selectionCycleId?: string;
 };
 type Log = { id: string; source: string; operation: string; method: string; status: string; recordCount: number; endedAt: string };
 type Capacity = { domain: string; capacity: number; demand: number; allocated: number; available: number };
@@ -31,86 +31,242 @@ function App() {
   const [whatIf, setWhatIf] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('Ready for synchronized intake');
+  const [loginRequired, setLoginRequired] = useState(false);
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+
+  async function requestJson<T = any>(url: string, init: RequestInit = {}): Promise<T> {
+    const response = await apiFetch(url, init);
+    if (response.status === 401) {
+      setLoginRequired(true);
+      throw new Error('AUTH_REQUIRED');
+    }
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(body.message ?? `Request failed (${response.status})`);
+    }
+    return body as T;
+  }
 
   async function refresh() {
     try {
       const [s, l, c, r, st, a] = await Promise.all([
-        fetch(`${API}/reports/selection-summary`).then((x) => x.json()),
-        fetch(`${API}/integrations/logs`).then((x) => x.json()),
-        fetch(`${API}/reports/domain-capacity`).then((x) => x.json()),
-        fetch(`${API}/agent/selection/recommendations`).then((x) => x.json()),
-        fetch(`${API}/students`).then((x) => x.json()),
-        fetch(`${API}/ai/anomalies`).then((x) => x.json()),
+        requestJson<Summary>(`${API}/reports/selection-summary`),
+        requestJson<Log[]>(`${API}/integrations/logs`),
+        requestJson<Capacity[]>(`${API}/reports/domain-capacity`),
+        requestJson<Recommendation[]>(`${API}/agent/selection/recommendations`),
+        requestJson<Student[]>(`${API}/students`),
+        requestJson<Anomaly[]>(`${API}/ai/anomalies`),
       ]);
       setSummary(s); setLogs(l); setCapacities(c); setRecommendations(r); setStudents(st); setAnomalies(a);
-    } catch { setNotice('API unavailable - start the stack to activate live monitoring'); }
+      setLoginRequired(false);
+    } catch (error) {
+      if (error instanceof Error && error.message === 'AUTH_REQUIRED') return;
+      setNotice(error instanceof Error ? error.message : 'API unavailable');
+    }
   }
 
   useEffect(() => { void refresh(); }, []);
 
   async function importFile(file: File) {
     setBusy(true);
-    const data = new FormData(); data.append('file', file);
-    const response = await fetch(`${API}/integrations/import/excel`, {
-      method: 'POST', headers: { 'Idempotency-Key': crypto.randomUUID() }, body: data,
-    });
-    const result = await response.json();
-    setNotice(response.ok ? `Imported ${result.imported} records through the canonical pipeline` : result.message ?? 'Import failed');
-    setBusy(false); await refresh();
+    try {
+      const data = new FormData();
+      data.append('file', file);
+      const result = await requestJson<any>(`${API}/integrations/import/excel`, {
+        method: 'POST',
+        headers: { 'Idempotency-Key': crypto.randomUUID() },
+        body: data,
+      });
+      setNotice(`Imported ${result.imported} records through the canonical pipeline`);
+      await refresh();
+    } catch (error) {
+      if (!(error instanceof Error && error.message === 'AUTH_REQUIRED')) {
+        setNotice(error instanceof Error ? error.message : 'Import failed');
+      }
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function runAgent() {
     setBusy(true);
-    const response = await fetch(`${API}/agent/selection/run`, {
-      method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}',
-    });
-    const result = await response.json();
-    setNotice(`Agent analyzed ${result.eligiblePoolSize ?? 0} eligible students; approval remains required`);
-    setBusy(false); await refresh();
+    try {
+      const result = await requestJson<any>(`${API}/agent/selection/run`, {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ selectionCycleId: summary.selectionCycleId }),
+      });
+      setNotice(`Agent analyzed ${result.eligiblePoolSize ?? 0} eligible students; approval remains required`);
+      await refresh();
+    } catch (error) {
+      if (!(error instanceof Error && error.message === 'AUTH_REQUIRED')) {
+        setNotice(error instanceof Error ? error.message : 'Agent run failed');
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function runOfficialSelection() {
+    if (!summary.selectionCycleId) {
+      setNotice('No active selection cycle is available yet');
+      return;
+    }
+    setBusy(true);
+    try {
+      const result = await requestJson<any>(`${API}/selection-pipeline/run`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ selectionCycleId: summary.selectionCycleId }),
+      });
+      setNotice(`Official selection complete: ${result.selected ?? 0} selected, ${result.waitlisted ?? 0} waitlisted, ${result.ineligible ?? 0} ineligible`);
+      await refresh();
+    } catch (error) {
+      if (!(error instanceof Error && error.message === 'AUTH_REQUIRED')) {
+        setNotice(error instanceof Error ? error.message : 'Selection pipeline failed');
+      }
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function prepareDemo() {
     setBusy(true);
-    const response = await fetch(`${API}/demo/run-dependency-simulation`, { method: 'POST' });
-    const result = await response.json();
-    setNotice(response.ok
-      ? `Standalone dependencies ready: ${result.eligibility.eligible} eligible, ${result.project8.selected} selected`
-      : result.message ?? 'Dependency simulation failed');
-    setBusy(false); await refresh();
+    try {
+      const result = await requestJson<any>(`${API}/demo/run-dependency-simulation`, { method: 'POST' });
+      setNotice(`Standalone dependencies ready: ${result.eligibility.eligible} eligible, ${result.project8.selected} selected`);
+      await refresh();
+    } catch (error) {
+      if (!(error instanceof Error && error.message === 'AUTH_REQUIRED')) {
+        setNotice(error instanceof Error ? error.message : 'Dependency simulation failed');
+      }
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function analyze(studentId: string) {
     setBusy(true);
-    const response = await fetch(`${API}/ai/students/${studentId}/analyze`, { method: 'POST' });
-    const result = await response.json();
-    setNotice(response.ok ? `${studentId}: ${result.trend} profile; ${result.recommendedDomains.length} domain recommendations` : result.message);
-    setBusy(false); await refresh();
+    try {
+      const result = await requestJson<any>(`${API}/ai/students/${studentId}/analyze`, { method: 'POST' });
+      setNotice(`${studentId}: ${result.trend} profile; ${result.recommendedDomains.length} domain recommendations`);
+      await refresh();
+    } catch (error) {
+      if (!(error instanceof Error && error.message === 'AUTH_REQUIRED')) {
+        setNotice(error instanceof Error ? error.message : 'Analysis failed');
+      }
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function simulateImprovement(student: Student) {
-    const response = await fetch(`${API}/ai/students/${student.studentId}/what-if`, {
-      method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ codingScore: Math.min(100, student.codingScore + 10), attendancePercent: Math.max(80, student.attendancePercent) }),
-    });
-    const result = await response.json();
-    setWhatIf((current) => ({ ...current, [student.studentId]: result.projected?.interviewEligible
-      ? `Projected eligible · fit ${result.projected.recommendationScore}`
-      : result.projected?.reasons?.join(', ') ?? result.message }));
+    try {
+      const result = await requestJson<any>(`${API}/ai/students/${student.studentId}/what-if`, {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ codingScore: Math.min(100, student.codingScore + 10), attendancePercent: Math.max(80, student.attendancePercent) }),
+      });
+      setWhatIf((current) => ({ ...current, [student.studentId]: result.projected?.interviewEligible
+        ? `Projected eligible · fit ${result.projected.recommendationScore}`
+        : result.projected?.reasons?.join(', ') ?? result.message }));
+    } catch (error) {
+      if (!(error instanceof Error && error.message === 'AUTH_REQUIRED')) {
+        setNotice(error instanceof Error ? error.message : 'What-if analysis failed');
+      }
+    }
   }
 
   async function decide(id: string, decision: 'APPROVE' | 'REJECT') {
     setBusy(true);
-    const response = await fetch(`${API}/agent/selection/recommendations/${id}/decision`, {
-      method: 'POST', headers: { 'content-type': 'application/json', 'x-role': 'PLACEMENT_COORDINATOR' },
-      body: JSON.stringify({ approverId: 'demo-admin', decision }),
-    });
-    const result = await response.json();
-    setNotice(response.ok ? `Recommendation ${result.status.toLowerCase()}` : result.message);
-    setBusy(false); await refresh();
+    try {
+      const result = await requestJson<any>(`${API}/agent/selection/recommendations/${id}/decision`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ approverId: 'web-user', decision }),
+      });
+      setNotice(`Recommendation ${result.status.toLowerCase()}`);
+      await refresh();
+    } catch (error) {
+      if (!(error instanceof Error && error.message === 'AUTH_REQUIRED')) {
+        setNotice(error instanceof Error ? error.message : 'Decision failed');
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function login(event: React.FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    try {
+      const response = await apiFetch(`${API}/auth/login`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: loginEmail, password: loginPassword }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.message ?? 'Login failed');
+      localStorage.setItem(TOKEN_KEY, body.accessToken);
+      setLoginPassword('');
+      setLoginRequired(false);
+      setNotice(`Signed in as ${body.user?.name ?? body.user?.email ?? 'user'}`);
+      await refresh();
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Login failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function logout() {
+    clearSession();
+    setLoginRequired(true);
+    setNotice('Signed out');
+  }
+
+  async function downloadReport(path: string, filename: string) {
+    try {
+      const response = await apiFetch(`${API}${path}`);
+      if (response.status === 401) {
+        setLoginRequired(true);
+        return;
+      }
+      if (!response.ok) throw new Error('Report download failed');
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = filename;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Report download failed');
+    }
   }
 
   const topCapacity = useMemo(() => capacities.slice().sort((a, b) => b.demand - a.demand).slice(0, 6), [capacities]);
   const maxCapacity = Math.max(1, ...topCapacity.map((item) => item.capacity));
+
+  if (loginRequired) {
+    return <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: '#f8fafc', padding: 24 }}>
+      <form onSubmit={(event) => void login(event)} style={{ width: 'min(420px, 100%)', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 16, padding: 28, boxShadow: '0 20px 50px rgba(15,23,42,.08)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+          <span style={{ width: 42, height: 42, borderRadius: 12, background: '#0f172a', color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 800 }}>P9</span>
+          <div><h1 style={{ margin: 0, fontSize: 22 }}>Project 9</h1><small style={{ color: '#64748b' }}>Authorized access</small></div>
+        </div>
+        {notice && <p style={{ background: '#f1f5f9', padding: 10, borderRadius: 8, fontSize: 13 }}>{notice}</p>}
+        <label style={{ display: 'block', fontSize: 13, fontWeight: 700, marginBottom: 6 }}>Email</label>
+        <input type="email" required value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)}
+          style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', border: '1px solid #cbd5e1', borderRadius: 8, marginBottom: 14 }} />
+        <label style={{ display: 'block', fontSize: 13, fontWeight: 700, marginBottom: 6 }}>Password</label>
+        <input type="password" required value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)}
+          style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', border: '1px solid #cbd5e1', borderRadius: 8, marginBottom: 18 }} />
+        <button disabled={busy} type="submit"
+          style={{ width: '100%', padding: '11px 14px', border: 0, borderRadius: 8, background: '#2563eb', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>
+          {busy ? 'Signing in…' : 'Sign in'}
+        </button>
+      </form>
+    </div>;
+  }
 
   if (view === 'allocations') return <div style={{ minHeight: '100vh', background: '#fff' }}>
     <div style={{ display: 'flex', gap: 12, padding: '12px 24px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
@@ -134,7 +290,7 @@ function App() {
       <div className="guardrail"><b>Advisory boundary</b><p>AI can recommend and explain. Only an authorized approval can change allocation.</p></div>
     </aside>
     <main>
-      <header><div><p className="eyebrow">PEP / HOPE OPERATIONS</p><h1>Integration command center</h1></div><div className="headerActions"><button className="primary" disabled={busy} onClick={() => void prepareDemo()}>Prepare standalone demo</button><div className="status"><i />All services monitored</div></div></header>
+      <header><div><p className="eyebrow">PEP / HOPE OPERATIONS</p><h1>Integration command center</h1></div><div className="headerActions"><button className="primary" disabled={busy || !summary.selectionCycleId} onClick={() => void runOfficialSelection()}>Run official selection</button><button className="ghost" disabled={busy} onClick={() => void refresh()}>Refresh data</button><button className="ghost" onClick={logout}>Sign out</button><div className="status"><i />All services monitored</div></div></header>
       <section className="notice"><span>{notice}</span><button onClick={() => void refresh()}>Refresh</button></section>
       <section id="overview" className="metrics">
         <Metric label="Students synchronized" value={summary.totalStudents} tone="cyan" />
@@ -161,7 +317,7 @@ function App() {
         <section id="capacity" className="panel">
           <div className="panelHead"><div><p className="eyebrow">CAPACITY SIGNAL</p><h2>Domain load</h2></div><b>{capacities.reduce((sum, x) => sum + x.capacity, 0)} seats</b></div>
           <div className="bars">{topCapacity.map((item) => <div className="barRow" key={item.domain}><div><span>{item.domain.replace(/^PEPC-\d+ /, '')}</span><b>{item.demand}/{item.capacity}</b></div><div className="bar"><i style={{ width: `${Math.max(3, item.capacity / maxCapacity * 100)}%` }}><em style={{ width: `${Math.min(100, item.demand / Math.max(1, item.capacity) * 100)}%` }} /></i></div></div>)}</div>
-          <div className="exports"><a href={`${API}/reports/selection.csv`}>Selection CSV</a><a href={`${API}/reports/domain-capacity.csv`}>Capacity CSV</a></div>
+          <div className="exports"><button onClick={() => void downloadReport('/reports/selection.csv', 'selection-report.csv')}>Selection CSV</button><button onClick={() => void downloadReport('/reports/domain-capacity.csv', 'domain-capacity-report.csv')}>Capacity CSV</button></div>
         </section>
         <section id="students" className="panel span3">
           <div className="panelHead"><div><p className="eyebrow">STUDENT INTELLIGENCE</p><h2>Advisory analysis and what-if testing</h2></div><b>{students.length} profiles</b></div>

@@ -64,6 +64,7 @@ export interface AdvisoryAnalysis {
 export interface AgentRecommendation {
   id: string;
   studentId: string;
+  selectionCycleId?: string;
   recommendedDomain: string;
   rationale: string[];
   conflicts: string[];

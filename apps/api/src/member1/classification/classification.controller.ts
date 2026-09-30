@@ -15,7 +15,7 @@ import {
 } from './classification.dto';
 
 @ApiTags('Classification')
-@Controller('api/classification')
+@Controller('classification')
 export class ClassificationController {
   constructor(private readonly classification: ClassificationService) {}
 

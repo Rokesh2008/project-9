@@ -19,6 +19,9 @@ class StudentRecordDto {
   @IsString() registerNumber!: string;
   @IsString() name!: string;
   @IsString() department!: string;
+  @IsOptional() @IsString() batchIdentifier?: string;
+  @IsOptional() @IsString() academicYear?: string;
+  @IsOptional() @IsNumber() @Min(0) @Max(250) readinessScore?: number;
   @IsOptional() @IsEmail() email?: string;
   @IsNumber() @Min(0) @Max(10) cgpa!: number;
   @IsNumber() @Min(0) @Max(100) codingScore!: number;
@@ -32,6 +35,7 @@ class StudentRecordDto {
 }
 
 export class Project2ImportDto {
+  @IsOptional() @IsString() selectionCycleId?: string;
   @IsString() sourceBatchId!: string;
   @IsArray() @ValidateNested({ each: true }) @Type(() => StudentRecordDto) records!: StudentRecordDto[];
 }
@@ -45,6 +49,7 @@ export class CommunicationResultDto {
 }
 
 export class Project1ResultsDto {
+  @IsOptional() @IsString() selectionCycleId?: string;
   @IsString() sourceBatchId!: string;
   @IsArray() @ValidateNested({ each: true }) @Type(() => CommunicationResultDto) records!: CommunicationResultDto[];
 }
@@ -59,12 +64,13 @@ export class InterviewResultDto {
 }
 
 export class Project8ResultsDto {
+  @IsOptional() @IsString() selectionCycleId?: string;
   @IsString() sourceBatchId!: string;
   @IsArray() @ValidateNested({ each: true }) @Type(() => InterviewResultDto) records!: InterviewResultDto[];
 }
 
 export class RunAgentDto {
-  @IsOptional() @IsInt() @Min(1) cycleId?: number;
+  @IsOptional() @IsString() selectionCycleId?: string;
 }
 
 export class ApprovalDto {

@@ -40,8 +40,9 @@ export class AllocationController {
     @Param('id') id: string,
     @Body() body: ApproveRejectDto,
     @Headers('x-role') role: string,
+    @Headers('x-actor-id') headerActorId: string,
   ) {
-    return this.service.approve(id, body.actorId, role, body.reason);
+    return this.service.approve(id, headerActorId || body.actorId, role, body.reason);
   }
 
   @Post(':id/reject')
@@ -51,8 +52,9 @@ export class AllocationController {
     @Param('id') id: string,
     @Body() body: ApproveRejectDto,
     @Headers('x-role') role: string,
+    @Headers('x-actor-id') headerActorId: string,
   ) {
-    return this.service.reject(id, body.actorId, role, body.reason);
+    return this.service.reject(id, headerActorId || body.actorId, role, body.reason);
   }
 
   @Post(':id/freeze')
@@ -61,7 +63,8 @@ export class AllocationController {
     @Param('id') id: string,
     @Body() body: FreezeDto,
     @Headers('x-role') role: string,
+    @Headers('x-actor-id') headerActorId: string,
   ) {
-    return this.service.freeze(id, body.actorId, role);
+    return this.service.freeze(id, headerActorId || body.actorId, role);
   }
 }

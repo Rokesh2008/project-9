@@ -2,6 +2,7 @@
   "name": "project9-member3",
   "private": true,
   "version": "1.0.0",
+  "engines": { "node": ">=22 <25" },
   "workspaces": ["apps/api", "apps/web"],
   "scripts": {
     "dev": "concurrently -n api,web -c cyan,magenta \"npm run dev -w apps/api\" \"npm run dev -w apps/web\"",

@@ -12,7 +12,7 @@ import { ScoringService } from './scoring.service';
 import { CalculateStudentScoresDto } from './scoring.dto';
 
 @ApiTags('Scoring')
-@Controller('api/scoring')
+@Controller('scoring')
 export class ScoringController {
   constructor(private readonly scoring: ScoringService) {}
 

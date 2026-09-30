@@ -41,6 +41,16 @@ export class WeightsService {
       throw new BadRequestException('Duplicate parameterKey in weights');
     }
 
+    if (weights.some((w) => !Number.isFinite(w.weight) || w.weight < 0)) {
+      throw new BadRequestException('Weights must be finite non-negative numbers');
+    }
+    if (weights.some((w) => !Number.isFinite(w.maxRawScore) || w.maxRawScore <= 0)) {
+      throw new BadRequestException('maxRawScore must be a positive finite number');
+    }
+    if (weights.reduce((sum, w) => sum + w.weight, 0) <= 0) {
+      throw new BadRequestException('At least one parameter must have a positive weight');
+    }
+
     const latest = await this.prisma.weightVersion.findFirst({
       where: { selectionCycleId },
       orderBy: { version: 'desc' },

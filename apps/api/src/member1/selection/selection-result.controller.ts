@@ -3,7 +3,7 @@ import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { SelectionResultService } from './selection-result.service';
 
 @ApiTags('Selection')
-@Controller('api/selection')
+@Controller('selection')
 export class SelectionResultController {
   constructor(private readonly selectionResult: SelectionResultService) {}
 

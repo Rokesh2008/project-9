@@ -75,6 +75,12 @@ enum NotificationType {
   GENERAL
 }
 
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
 // ==========================================
 // MEMBER 2 - CORE ENTITIES
 // ==========================================
@@ -117,29 +123,35 @@ model Batch {
 }
 
 model Student {
-  id                String               @id @default(uuid())
-  studentId         String               @unique
-  name              String
-  email             String               @unique
-  contactNo         String?
-  batchId           String
-  batch             Batch                @relation(fields: [batchId], references: [id], onDelete: Restrict)
-  isActive          Boolean              @default(true)
-  createdAt         DateTime             @default(now())
-  updatedAt         DateTime             @updatedAt
-  user              User?
-  assessmentResults AssessmentResult[]
-  preferences       StudentPreference[]
-  cycleStatuses     StudentCycleStatus[]
-  allocations       Allocation[]
-  adminDecisions    AdminDecision[]
-  workflowAudits    WorkflowAuditLog[]
+  id                     String                  @id @default(uuid())
+  studentId              String                  @unique
+  registerNumber         String?                 @unique
+  name                   String
+  email                  String?                 @unique
+  contactNo              String?
+  cgpa                   Float?
+  attendancePercent      Float?
+  dsaLevel               String?
+  sourceUpdatedAt        DateTime?
+  batchId                String
+  batch                  Batch                   @relation(fields: [batchId], references: [id], onDelete: Restrict)
+  isActive               Boolean                 @default(true)
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  user                   User?
+  assessmentResults      AssessmentResult[]
+  credentials            StudentCredential[]
+  preferences            StudentPreference[]
+  cycleStatuses          StudentCycleStatus[]
+  allocations            Allocation[]
+  adminDecisions         AdminDecision[]
+  workflowAudits         WorkflowAuditLog[]
   // Member 1 reverse relations
-  eligibilityResults      EligibilityResult[]
-  studentScores           StudentScore[]
-  studentRankings         StudentRanking[]
-  snapshotEntries         RankingSnapshotEntry[]
-  hopePepClassifications  HopePepClassification[]
+  eligibilityResults     EligibilityResult[]
+  studentScores          StudentScore[]
+  studentRankings        StudentRanking[]
+  snapshotEntries        RankingSnapshotEntry[]
+  hopePepClassifications HopePepClassification[]
 
   @@index([batchId])
   @@index([studentId])
@@ -147,20 +159,20 @@ model Student {
 }
 
 model SelectionCycle {
-  id                   String               @id @default(uuid())
-  code                 String               @unique
-  name                 String
-  academicPeriod       String
-  startDate            DateTime
-  endDate              DateTime
-  status               CycleStatus          @default(ACTIVE)
-  createdAt            DateTime             @default(now())
-  updatedAt            DateTime             @updatedAt
-  studentCycleStatuses StudentCycleStatus[]
-  preferences          StudentPreference[]
-  allocations          Allocation[]
-  adminDecisions       AdminDecision[]
-  workflowAudits       WorkflowAuditLog[]
+  id                       String                    @id @default(uuid())
+  code                     String                    @unique
+  name                     String
+  academicPeriod           String
+  startDate                DateTime
+  endDate                  DateTime
+  status                   CycleStatus               @default(ACTIVE)
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
+  studentCycleStatuses     StudentCycleStatus[]
+  preferences              StudentPreference[]
+  allocations              Allocation[]
+  adminDecisions           AdminDecision[]
+  workflowAudits           WorkflowAuditLog[]
   // Member 1 reverse relations
   cycleConfig              CycleConfig?
   eligibilityRuleVersions  EligibilityRuleVersion[]
@@ -171,8 +183,8 @@ model SelectionCycle {
   freezeSchedules          FreezeSchedule[]
   rankingSnapshots         RankingSnapshot[]
   hopePepClassifications   HopePepClassification[]
-  scoreAuditLogs              ScoreAuditLog[]
-  freezeNotificationEvents    FreezeNotificationEvent[]
+  scoreAuditLogs           ScoreAuditLog[]
+  freezeNotificationEvents FreezeNotificationEvent[]
 }
 
 model AssessmentResult {
@@ -189,18 +201,40 @@ model AssessmentResult {
   metadata         Json?
   createdAt        DateTime       @default(now())
 
+  @@unique([studentId, sourceIdentifier])
   @@index([studentId, assessmentType])
   @@index([studentId, createdAt])
 }
 
+model StudentCredential {
+  id                 String             @id @default(uuid())
+  studentId          String
+  student            Student            @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  credentialType     String             @default("CERTIFICATE")
+  name               String
+  issuer             String?
+  hours              Float?
+  verificationStatus VerificationStatus @default(PENDING)
+  verifiedBy         String?
+  verifiedAt         DateTime?
+  rejectionReason    String?
+  sourceIdentifier   String?            @unique
+  metadata           Json?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  @@index([studentId, verificationStatus])
+  @@index([studentId, name])
+}
+
 model Program {
-  id          String    @id @default(uuid())
-  code        String    @unique
+  id          String   @id @default(uuid())
+  code        String   @unique
   name        String
   description String?
-  isActive    Boolean   @default(true)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
   domains     Domain[]
 }
 
@@ -418,15 +452,15 @@ enum ClassificationStatus {
 model CycleConfig {
   id                       String                  @id @default(uuid())
   selectionCycleId         String                  @unique
-  selectionCycle           SelectionCycle           @relation(fields: [selectionCycleId], references: [id], onDelete: Cascade)
+  selectionCycle           SelectionCycle          @relation(fields: [selectionCycleId], references: [id], onDelete: Cascade)
   activeWeightVersionId    String?
-  activeWeightVersion      WeightVersion?           @relation("CycleActiveWeight", fields: [activeWeightVersionId], references: [id], onDelete: SetNull)
+  activeWeightVersion      WeightVersion?          @relation("CycleActiveWeight", fields: [activeWeightVersionId], references: [id], onDelete: SetNull)
   hopeCount                Int
   pepCount                 Int
   eligibilityRuleVersionId String?
-  activeEligibilityRule    EligibilityRuleVersion?  @relation("CycleActiveRule", fields: [eligibilityRuleVersionId], references: [id], onDelete: SetNull)
-  createdAt                DateTime                 @default(now())
-  updatedAt                DateTime                 @updatedAt
+  activeEligibilityRule    EligibilityRuleVersion? @relation("CycleActiveRule", fields: [eligibilityRuleVersionId], references: [id], onDelete: SetNull)
+  createdAt                DateTime                @default(now())
+  updatedAt                DateTime                @updatedAt
 }
 
 model EligibilityRuleVersion {

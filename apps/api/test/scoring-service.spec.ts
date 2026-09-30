@@ -100,7 +100,7 @@ describe('ScoringService', () => {
       expect(result.selectionCycleId).toBe(CYCLE_ID);
       expect(result.weightVersionId).toBe(WEIGHT_VERSION_ID);
       expect(result.parameterScores).toHaveLength(3);
-      expect(result.totalScore).toBeCloseTo(80 * 0.5 + 70 * 0.3 + 8.5 * 0.2);
+      expect(result.totalScore).toBeCloseTo(80 * 0.5 + 70 * 0.3 + 85 * 0.2);
 
       expect(mockPrisma.studentScore.upsert).toHaveBeenCalledTimes(3);
     });

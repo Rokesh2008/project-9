@@ -15,7 +15,7 @@ import {
 } from './eligibility.dto';
 
 @ApiTags('Eligibility')
-@Controller('api/eligibility')
+@Controller('eligibility')
 export class EligibilityController {
   constructor(private readonly eligibility: EligibilityService) {}
 

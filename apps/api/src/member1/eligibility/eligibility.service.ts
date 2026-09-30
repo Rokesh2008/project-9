@@ -156,22 +156,46 @@ export class EligibilityService {
   // Student context assembly
   // ──────────────────────────────────────────
 
-  async assembleStudentContext(studentId: string): Promise<StudentContext> {
+  async assembleStudentContext(
+    studentId: string,
+    selectionCycleId?: string,
+  ): Promise<StudentContext> {
     const student = await this.prisma.student.findUnique({
       where: { id: studentId },
       include: {
         assessmentResults: true,
         batch: true,
+        credentials: {
+          where: { verificationStatus: 'VERIFIED' },
+          orderBy: { name: 'asc' },
+        },
       },
     });
     if (!student) throw new NotFoundException('Student not found');
 
+    const preferences = selectionCycleId && this.prisma.studentPreference?.findMany
+      ? await this.prisma.studentPreference.findMany({
+          where: { studentId, selectionCycleId },
+          orderBy: { preferenceRank: 'asc' },
+          include: { domain: true },
+        })
+      : [];
+    const credentials = student.credentials ?? [];
+
     const context: StudentContext = {
       studentId: student.studentId,
+      registerNumber: student.registerNumber,
       name: student.name,
       email: student.email,
       isActive: student.isActive,
       batchId: student.batchId,
+      cgpa: student.cgpa,
+      attendancePercent: student.attendancePercent,
+      dsaLevel: student.dsaLevel,
+      verifiedCertificates: credentials.map((c) => c.name),
+      certificateCount: credentials.length,
+      preferences: preferences.map((p) => p.domain.code),
+      preferenceCount: preferences.length,
     };
 
     for (const ar of student.assessmentResults) {
@@ -250,7 +274,7 @@ export class EligibilityService {
     config: RuleConfiguration,
     actorId: string,
   ): Promise<EligibilityResultContract> {
-    const context = await this.assembleStudentContext(studentId);
+    const context = await this.assembleStudentContext(studentId, selectionCycleId);
 
     let result: EligibilityEvaluationResult;
     try {
@@ -398,7 +422,7 @@ export class EligibilityService {
       [];
 
     for (const s of students) {
-      const context = await this.assembleStudentContext(s.id);
+      const context = await this.assembleStudentContext(s.id, selectionCycleId);
 
       let result: EligibilityEvaluationResult;
       try {

@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
-
-const API = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api';
+import { API, apiFetch } from './api';
 
 type Allocation = {
   id: string;
@@ -28,7 +27,7 @@ export function AllocationAdmin() {
   async function refresh() {
     try {
       const url = cycleId ? `${API}/allocations?selectionCycleId=${cycleId}` : `${API}/allocations`;
-      const res = await fetch(url);
+      const res = await apiFetch(url);
       if (res.ok) setAllocations(await res.json());
     } catch {
       setNotice('Could not fetch allocations');
@@ -40,7 +39,7 @@ export function AllocationAdmin() {
   async function generate() {
     if (!cycleId) { setNotice('Enter a selection cycle ID first'); return; }
     setBusy(true);
-    const res = await fetch(`${API}/allocations/generate`, {
+    const res = await apiFetch(`${API}/allocations/generate`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-actor-id': 'admin-ui' },
       body: JSON.stringify({ selectionCycleId: cycleId }),
@@ -58,7 +57,7 @@ export function AllocationAdmin() {
     const body = act === 'freeze'
       ? { actorId: 'admin-ui' }
       : { actorId: 'admin-ui', reason: act === 'approve' ? 'Approved by admin' : 'Rejected by admin' };
-    const res = await fetch(`${API}/allocations/${id}/${act}`, {
+    const res = await apiFetch(`${API}/allocations/${id}/${act}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-role': 'ADMIN', 'x-actor-id': 'admin-ui' },
       body: JSON.stringify(body),
