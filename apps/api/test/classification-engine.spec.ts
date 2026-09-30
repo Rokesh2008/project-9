@@ -76,7 +76,7 @@ describe('ClassificationEngine', () => {
       expect(result.classifiedStudents[0].studentId).toBe('stu-1');
       expect(result.classifiedStudents[1].program).toBe('PEP');
       expect(result.classifiedStudents[1].studentId).toBe('stu-2');
-      expect(result.classifiedStudents[2].program).toBe('NOT_ELIGIBLE');
+      expect(result.classifiedStudents[2].program).toBe('WAITLIST');
     });
 
     it('skips ineligible students when filling HOPE slots', () => {
@@ -142,12 +142,13 @@ describe('ClassificationEngine', () => {
       expect(result.classifiedStudents[0].program).toBe('HOPE');
       expect(result.classifiedStudents[1].program).toBe('HOPE');
       expect(result.classifiedStudents[2].program).toBe('PEP');
-      expect(result.classifiedStudents[3].program).toBe('NOT_ELIGIBLE');
+      expect(result.classifiedStudents[3].program).toBe('WAITLIST');
       expect(result.hopeClassified).toBe(2);
       expect(result.pepClassified).toBe(1);
+      expect(result.waitlistedCount).toBe(1);
     });
 
-    it('eligible students beyond both HOPE and PEP boundaries are NOT_ELIGIBLE', () => {
+    it('eligible students beyond both HOPE and PEP capacities are WAITLISTED', () => {
       const students: ClassificationInput[] = [
         { studentId: 'stu-1', rank: 1, hopeEligible: true, pepEligible: true },
         { studentId: 'stu-2', rank: 2, hopeEligible: true, pepEligible: true },
@@ -156,8 +157,9 @@ describe('ClassificationEngine', () => {
       const config: ClassificationConfig = { hopeCount: 1, pepCount: 1 };
       const result = classifyStudents(students, config);
 
-      expect(result.classifiedStudents[2].program).toBe('NOT_ELIGIBLE');
-      expect(result.notEligibleCount).toBe(1);
+      expect(result.classifiedStudents[2].program).toBe('WAITLIST');
+      expect(result.waitlistedCount).toBe(1);
+      expect(result.notEligibleCount).toBe(0);
     });
 
     it('PEP-only student does not consume HOPE slot', () => {
@@ -275,7 +277,8 @@ describe('ClassificationEngine', () => {
 
       expect(result.hopeClassified).toBe(0);
       expect(result.pepClassified).toBe(2);
-      expect(result.classifiedStudents[2].program).toBe('NOT_ELIGIBLE');
+      expect(result.classifiedStudents[2].program).toBe('WAITLIST');
+      expect(result.waitlistedCount).toBe(1);
     });
 
     it('hopeCount=0 — no HOPE classifications', () => {
@@ -296,16 +299,19 @@ describe('ClassificationEngine', () => {
       const result = classifyStudents(students, { hopeCount: 1, pepCount: 0 });
 
       expect(result.classifiedStudents[0].program).toBe('HOPE');
-      expect(result.classifiedStudents[1].program).toBe('NOT_ELIGIBLE');
+      expect(result.classifiedStudents[1].program).toBe('WAITLIST');
+      expect(result.waitlistedCount).toBe(1);
     });
 
-    it('both counts zero — all NOT_ELIGIBLE', () => {
+    it('both counts zero — eligible students are waitlisted', () => {
       const students: ClassificationInput[] = [
         { studentId: 'stu-1', rank: 1, hopeEligible: true, pepEligible: true },
       ];
       const result = classifyStudents(students, { hopeCount: 0, pepCount: 0 });
 
-      expect(result.classifiedStudents[0].program).toBe('NOT_ELIGIBLE');
+      expect(result.classifiedStudents[0].program).toBe('WAITLIST');
+      expect(result.waitlistedCount).toBe(1);
+      expect(result.notEligibleCount).toBe(0);
     });
   });
 

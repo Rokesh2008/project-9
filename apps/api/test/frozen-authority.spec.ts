@@ -314,7 +314,7 @@ describe('Frozen Snapshot Authority', () => {
 
       expect(result[0].program).toBe('HOPE');
       expect(result[1].program).toBe('PEP');
-      expect(result[2].program).toBe('NOT_ELIGIBLE');
+      expect(result[2].program).toBe('WAITLIST');
     });
 
     it('produces deterministic output — same snapshot yields same classification', async () => {
@@ -610,7 +610,8 @@ describe('Frozen Snapshot Authority', () => {
       // Only 1 HOPE, 1 PEP per snapshot config — not 100/100
       expect(result.filter((r) => r.program === 'HOPE')).toHaveLength(1);
       expect(result.filter((r) => r.program === 'PEP')).toHaveLength(1);
-      expect(result.filter((r) => r.program === 'NOT_ELIGIBLE')).toHaveLength(1);
+      expect(result.filter((r) => r.program === 'WAITLIST')).toHaveLength(1);
+      expect(result.filter((r) => r.program === 'NOT_ELIGIBLE')).toHaveLength(0);
     });
   });
 

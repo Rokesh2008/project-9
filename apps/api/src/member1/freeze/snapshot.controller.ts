@@ -4,7 +4,7 @@ import { FreezeService } from './freeze.service';
 import { SnapshotQueryDto } from './freeze.dto';
 
 @ApiTags('Snapshot')
-@Controller('api/snapshot')
+@Controller('snapshot')
 export class SnapshotController {
   constructor(private readonly freeze: FreezeService) {}
 

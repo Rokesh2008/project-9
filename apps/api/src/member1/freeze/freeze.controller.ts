@@ -5,7 +5,7 @@ import { FreezeNotificationService } from './freeze-notification.service';
 import { ScheduleFreezeDto, CancelFreezeDto, ExecuteFreezeDto, PostponeFreezeDto, RefreezeDto } from './freeze.dto';
 
 @ApiTags('Freeze')
-@Controller('api/freeze')
+@Controller('freeze')
 export class FreezeController {
   constructor(
     private readonly freeze: FreezeService,

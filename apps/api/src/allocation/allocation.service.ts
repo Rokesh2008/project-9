@@ -39,46 +39,82 @@ export class AllocationService {
       const preferences = await this.prisma.studentPreference.findMany({
         where: { studentId: scs.studentId, selectionCycleId },
         orderBy: { preferenceRank: 'asc' },
-        include: { domain: { include: { trainingBatches: { where: { isActive: true } } } } },
+        include: {
+          domain: {
+            include: {
+              trainingBatches: {
+                where: { isActive: true },
+                orderBy: { batchCode: 'asc' },
+              },
+            },
+          },
+        },
       });
 
       let allocated = false;
 
       for (const pref of preferences) {
-        const totalCapacity = pref.domain.trainingBatches.reduce((sum, b) => sum + b.maxCapacity, 0);
-        const currentCount = await this.prisma.allocation.count({
-          where: { domainId: pref.domainId, selectionCycleId, status: { not: 'REJECTED' } },
-        });
+        for (const batch of pref.domain.trainingBatches) {
+          const claimed = await this.prisma.$transaction(async (tx) => {
+            const updated = await tx.$executeRaw`
+              UPDATE "TrainingBatch"
+              SET "currentAllocated" = "currentAllocated" + 1,
+                  "updatedAt" = NOW()
+              WHERE "id" = ${batch.id}
+                AND "currentAllocated" < "maxCapacity"
+            `;
 
-        if (currentCount < totalCapacity) {
-          const batch = pref.domain.trainingBatches.find(
-            (b) => b.currentAllocated < b.maxCapacity,
-          );
+            if (updated !== 1) return false;
 
-          await this.prisma.allocation.create({
-            data: {
-              studentId: scs.studentId,
-              selectionCycleId,
-              domainId: pref.domainId,
-              trainingBatchId: batch?.id ?? null,
-              status: 'PENDING_APPROVAL',
-              preferenceRankUsed: pref.preferenceRank,
-            },
+            await tx.allocation.create({
+              data: {
+                studentId: scs.studentId,
+                selectionCycleId,
+                domainId: pref.domainId,
+                trainingBatchId: batch.id,
+                status: 'PENDING_APPROVAL',
+                preferenceRankUsed: pref.preferenceRank,
+              },
+            });
+
+            const cycleStatus = await tx.studentCycleStatus.findUnique({
+              where: {
+                studentId_selectionCycleId: {
+                  studentId: scs.studentId,
+                  selectionCycleId,
+                },
+              },
+            });
+
+            await tx.workflowAuditLog.create({
+              data: {
+                studentCycleStatusId: cycleStatus?.id ?? null,
+                studentId: scs.studentId,
+                selectionCycleId,
+                fromState: 'ALLOCATION',
+                toState: 'ADMIN_REVIEW',
+                actor: actorId,
+                role: 'SYSTEM',
+                reason: `Allocated to ${pref.domain.code} (preference #${pref.preferenceRank})`,
+              },
+            });
+
+            return true;
           });
 
-          if (batch) {
-            await this.prisma.trainingBatch.update({
-              where: { id: batch.id },
-              data: { currentAllocated: { increment: 1 } },
-            });
-          }
+          if (!claimed) continue;
 
-          await this.writeAudit(scs.studentId, selectionCycleId, 'ALLOCATION', 'ADMIN_REVIEW', actorId, 'SYSTEM', `Allocated to ${pref.domain.code} (preference #${pref.preferenceRank})`);
-
-          results.push({ studentId: scs.studentId, status: 'PENDING_APPROVAL', domainCode: pref.domain.code, preferenceRank: pref.preferenceRank });
+          results.push({
+            studentId: scs.studentId,
+            status: 'PENDING_APPROVAL',
+            domainCode: pref.domain.code,
+            preferenceRank: pref.preferenceRank,
+          });
           allocated = true;
           break;
         }
+
+        if (allocated) break;
       }
 
       if (!allocated) {
@@ -105,6 +141,133 @@ export class AllocationService {
       skipped: results.filter((r) => r.status === 'SKIPPED').length,
       results,
     };
+  }
+
+  async applyApprovedRecommendation(
+    externalStudentId: string,
+    selectionCycleId: string,
+    domainCode: string,
+    actorId: string,
+    reason: string,
+  ) {
+    const student = await this.prisma.student.findUnique({
+      where: { studentId: externalStudentId },
+    });
+    if (!student) throw new NotFoundException('Student not found');
+
+    const domain = await this.prisma.domain.findUnique({
+      where: { code: domainCode },
+      include: {
+        trainingBatches: {
+          where: { isActive: true },
+          orderBy: { batchCode: 'asc' },
+        },
+      },
+    });
+    if (!domain) throw new NotFoundException('Recommended domain not found');
+
+    const existing = await this.prisma.allocation.findUnique({
+      where: {
+        studentId_selectionCycleId: {
+          studentId: student.id,
+          selectionCycleId,
+        },
+      },
+    });
+    if (existing) {
+      if (existing.domainId === domain.id && ['APPROVED', 'FROZEN'].includes(existing.status)) {
+        return existing;
+      }
+      throw new BadRequestException('Student already has an allocation for this cycle');
+    }
+
+    for (const batch of domain.trainingBatches) {
+      const allocation = await this.prisma.$transaction(async (tx) => {
+        const claimed = await tx.$executeRaw`
+          UPDATE "TrainingBatch"
+          SET "currentAllocated" = "currentAllocated" + 1,
+              "updatedAt" = NOW()
+          WHERE "id" = ${batch.id}
+            AND "currentAllocated" < "maxCapacity"
+        `;
+        if (claimed !== 1) return null;
+
+        const created = await tx.allocation.create({
+          data: {
+            studentId: student.id,
+            selectionCycleId,
+            domainId: domain.id,
+            trainingBatchId: batch.id,
+            status: 'APPROVED',
+            isFinalized: true,
+            finalizedAt: new Date(),
+            finalizedBy: actorId,
+            metadata: { source: 'SELECTION_INTELLIGENCE_AGENT', approvedBy: actorId },
+          },
+        });
+
+        const cycleStatus = await tx.studentCycleStatus.findUnique({
+          where: {
+            studentId_selectionCycleId: {
+              studentId: student.id,
+              selectionCycleId,
+            },
+          },
+        });
+
+        await tx.studentCycleStatus.upsert({
+          where: {
+            studentId_selectionCycleId: {
+              studentId: student.id,
+              selectionCycleId,
+            },
+          },
+          update: { currentState: 'FINALIZED' },
+          create: {
+            studentId: student.id,
+            selectionCycleId,
+            currentState: 'FINALIZED',
+          },
+        });
+
+        await tx.adminDecision.create({
+          data: {
+            studentId: student.id,
+            selectionCycleId,
+            decisionType: 'OVERRIDE_ALLOCATION',
+            reason,
+            actor: actorId,
+            role: 'ADMIN',
+            targetDomainId: domain.id,
+            targetBatchId: batch.id,
+            metadata: { source: 'SELECTION_INTELLIGENCE_AGENT' },
+          },
+        });
+
+        await tx.workflowAuditLog.create({
+          data: {
+            studentCycleStatusId: cycleStatus?.id ?? null,
+            studentId: student.id,
+            selectionCycleId,
+            fromState: cycleStatus?.currentState ?? 'ALLOCATION',
+            toState: 'FINALIZED',
+            actor: actorId,
+            role: 'ADMIN',
+            reason,
+            metadata: {
+              source: 'SELECTION_INTELLIGENCE_AGENT',
+              domainCode,
+            },
+          },
+        });
+
+        return created;
+      });
+
+      if (allocation) return allocation;
+    }
+
+    throw new BadRequestException('Recommended domain has no available capacity');
   }
 
   async findAll(selectionCycleId?: string) {

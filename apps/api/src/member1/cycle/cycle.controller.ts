@@ -1,10 +1,10 @@
-import { Controller, Post, Get, Patch, Param, Body, Headers } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiHeader } from '@nestjs/swagger';
+import { Body, Controller, ForbiddenException, Get, Headers, Param, Patch, Post } from '@nestjs/common';
+import { ApiHeader, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CycleService } from './cycle.service';
 import { CreateCycleConfigDto, UpdateCycleConfigDto } from './cycle.dto';
 
 @ApiTags('Cycle Config')
-@Controller('api/cycles')
+@Controller('cycles')
 export class CycleController {
   constructor(private readonly cycle: CycleService) {}
 
@@ -13,12 +13,17 @@ export class CycleController {
   @ApiHeader({ name: 'x-role', required: true })
   @ApiHeader({ name: 'x-actor-id', required: true })
   async createConfig(
-    @Body() _dto: CreateCycleConfigDto,
-    @Headers('x-role') _role: string,
-    @Headers('x-actor-id') _actorId: string,
+    @Body() dto: CreateCycleConfigDto,
+    @Headers('x-role') role: string,
+    @Headers('x-actor-id') actorId: string,
   ) {
-    // TODO: Implement in Prompt 04+
-    throw new Error('Not implemented');
+    this.assertPrivileged(role);
+    return this.cycle.createConfig(
+      dto.selectionCycleId,
+      dto.hopeCount,
+      dto.pepCount,
+      actorId,
+    );
   }
 
   @Patch('config/:selectionCycleId')
@@ -26,21 +31,25 @@ export class CycleController {
   @ApiHeader({ name: 'x-role', required: true })
   @ApiHeader({ name: 'x-actor-id', required: true })
   async updateConfig(
-    @Param('selectionCycleId') _selectionCycleId: string,
-    @Body() _dto: UpdateCycleConfigDto,
-    @Headers('x-role') _role: string,
-    @Headers('x-actor-id') _actorId: string,
+    @Param('selectionCycleId') selectionCycleId: string,
+    @Body() dto: UpdateCycleConfigDto,
+    @Headers('x-role') role: string,
+    @Headers('x-actor-id') actorId: string,
   ) {
-    // TODO: Implement in Prompt 04+
-    throw new Error('Not implemented');
+    this.assertPrivileged(role);
+    await this.cycle.updateConfig(selectionCycleId, dto, actorId);
+    return this.cycle.getConfig(selectionCycleId);
   }
 
   @Get('config/:selectionCycleId')
   @ApiOperation({ summary: 'Get cycle config' })
-  async getConfig(
-    @Param('selectionCycleId') _selectionCycleId: string,
-  ) {
-    // TODO: Implement in Prompt 04+
-    throw new Error('Not implemented');
+  async getConfig(@Param('selectionCycleId') selectionCycleId: string) {
+    return this.cycle.getConfig(selectionCycleId);
+  }
+
+  private assertPrivileged(role: string) {
+    if (!['ADMIN', 'COORDINATOR'].includes(role)) {
+      throw new ForbiddenException('Admin or coordinator role required');
+    }
   }
 }

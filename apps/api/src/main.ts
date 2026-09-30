@@ -13,7 +13,9 @@ async function bootstrap() {
     .setTitle('Project 9 - Member 3 API')
     .setDescription('Integration, advisory AI, agent approval, analytics and fallback import API')
     .setVersion('1.0.0')
+    .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT' })
     .addApiKey({ type: 'apiKey', name: 'Idempotency-Key', in: 'header' }, 'idempotency')
+    .addApiKey({ type: 'apiKey', name: 'x-integration-api-key', in: 'header' }, 'integration-key')
     .build();
   SwaggerModule.setup('api/docs', app, SwaggerModule.createDocument(app, config));
   await app.listen(Number(process.env.PORT ?? 3000));

@@ -7,6 +7,7 @@ import {
   Headers,
   Param,
   Post,
+  Query,
   Res,
   UploadedFile,
   UseInterceptors,
@@ -20,6 +21,7 @@ import { ApprovalDto, Project1ResultsDto, Project2ImportDto, Project8ResultsDto,
 import { DemoService } from './demo.service';
 import { IntegrationsService } from './integrations.service';
 import { IntelligenceService } from './intelligence.service';
+import { OfficialReadService } from './official-read.service';
 import { ReportsService } from './reports.service';
 import { Store } from './store';
 
@@ -40,7 +42,9 @@ export class IntegrationsController {
   }
 
   @Get('project1/candidates')
-  project1Candidates() { return this.integrations.exportProject1Candidates(); }
+  project1Candidates(@Query('selectionCycleId') selectionCycleId?: string) {
+    return this.integrations.exportProject1Candidates(selectionCycleId);
+  }
 
   @Post('project1/results')
   @ApiHeader({ name: 'Idempotency-Key', required: true })
@@ -49,7 +53,9 @@ export class IntegrationsController {
   }
 
   @Get('project8/candidates')
-  project8Candidates() { return this.integrations.exportProject8Candidates(); }
+  project8Candidates(@Query('selectionCycleId') selectionCycleId?: string) {
+    return this.integrations.exportProject8Candidates(selectionCycleId);
+  }
 
   @Post('project8/results')
   @ApiHeader({ name: 'Idempotency-Key', required: true })
@@ -77,9 +83,25 @@ export class IntegrationsController {
 @ApiTags('Students and advisory AI')
 @Controller()
 export class StudentsController {
-  constructor(private readonly store: Store, private readonly ai: AiService, private readonly intelligence: IntelligenceService) {}
+  constructor(
+    private readonly store: Store,
+    private readonly ai: AiService,
+    private readonly intelligence: IntelligenceService,
+    private readonly official: OfficialReadService,
+  ) {}
 
-  @Get('students') students() {
+  @Get('students')
+  async students() {
+    const official = await this.official.listStudents();
+    if (official) {
+      return official.map((student) => ({
+        ...student,
+        advisoryAnalysis: this.store.analyses.get(student.studentId),
+        allocation:
+          student.allocation ?? this.store.allocations.get(student.studentId),
+      }));
+    }
+
     return [...this.store.students.values()].map((student) => ({
       ...student,
       advisoryAnalysis: this.store.analyses.get(student.studentId),
@@ -87,19 +109,33 @@ export class StudentsController {
     }));
   }
 
-  @Get('students/:id') student(@Param('id') id: string) {
+  @Get('students/:id')
+  async student(@Param('id') id: string) {
+    const official = await this.official.getStudent(id);
     return {
-      student: this.store.students.get(id),
+      student: official ?? this.store.students.get(id),
       analysis: this.store.analyses.get(id),
-      communicationResults: [...this.store.communicationResults.values()].filter((r) => r.studentId === id),
-      interviewAttempts: [...this.store.interviewResults.values()].filter((r) => r.studentId === id),
-      allocation: this.store.allocations.get(id),
+      communicationResults: [...this.store.communicationResults.values()].filter(
+        (result) => result.studentId === id,
+      ),
+      interviewAttempts: [...this.store.interviewResults.values()].filter(
+        (result) => result.studentId === id,
+      ),
+      allocation:
+        official?.allocation ?? this.store.allocations.get(id),
     };
   }
 
-  @Post('ai/students/:id/analyze') analyze(@Param('id') id: string) { return this.ai.analyze(id); }
-  @Post('ai/students/:id/what-if') whatIf(@Param('id') id: string, @Body() body: WhatIfDto) { return this.intelligence.whatIf(id, body); }
-  @Get('ai/anomalies') anomalies() { return this.intelligence.anomalies(); }
+  @Post('ai/students/:id/analyze')
+  analyze(@Param('id') id: string) { return this.ai.analyze(id); }
+
+  @Post('ai/students/:id/what-if')
+  whatIf(@Param('id') id: string, @Body() body: WhatIfDto) {
+    return this.intelligence.whatIf(id, body);
+  }
+
+  @Get('ai/anomalies')
+  anomalies() { return this.intelligence.anomalies(); }
 }
 
 @ApiTags('Standalone dependency simulator')
@@ -119,17 +155,20 @@ export class DemoController {
 export class AgentController {
   constructor(private readonly agent: AgentService) {}
 
-  @Post('run') run(@Body() _body: RunAgentDto) { return this.agent.run(); }
+  @Post('run') run(@Body() body: RunAgentDto) {
+    return this.agent.run(body.selectionCycleId);
+  }
   @Get('recommendations') list() { return this.agent.list(); }
   @Post('recommendations/:id/decision') decision(
     @Param('id') id: string,
     @Body() body: ApprovalDto,
     @Headers('x-role') role: string,
+    @Headers('x-actor-id') actorId: string,
   ) {
-    if (!['ADMIN', 'PLACEMENT_COORDINATOR'].includes(role)) {
+    if (!['ADMIN', 'COORDINATOR', 'PLACEMENT_COORDINATOR'].includes(role)) {
       throw new ForbiddenException('Authorized approval role required');
     }
-    return this.agent.approve(id, body.approverId, body.decision);
+    return this.agent.approve(id, actorId || body.approverId, body.decision);
   }
 }
 
@@ -146,10 +185,14 @@ export class ReportsController {
   @Get('selection.csv')
   @Header('content-type', 'text/csv')
   @Header('content-disposition', 'attachment; filename="selection-report.csv"')
-  selectionCsv(@Res() response: Response) { response.send(this.reports.selectionCsv()); }
+  async selectionCsv(@Res() response: Response) {
+    response.send(await this.reports.selectionCsv());
+  }
 
   @Get('domain-capacity.csv')
   @Header('content-type', 'text/csv')
   @Header('content-disposition', 'attachment; filename="domain-capacity-report.csv"')
-  capacityCsv(@Res() response: Response) { response.send(this.reports.capacityCsv()); }
+  async capacityCsv(@Res() response: Response) {
+    response.send(await this.reports.capacityCsv());
+  }
 }

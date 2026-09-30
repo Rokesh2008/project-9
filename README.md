@@ -1,128 +1,154 @@
-# Project 9 - Member 3: Integration, AI Analysis & Analytics
+# Project 9 — PEP/HOPE Selection, Ranking & Training Allocation Automation
 
-Production-oriented baseline for the Member 3 responsibilities in the PEP/HOPE Selection, Ranking & Training Allocation Automation Platform.
+Integrated implementation of Project 9. The repository now contains the deterministic eligibility/ranking engine, student workflow and allocation engine, Project 1/2/8 integration gateway, advisory AI/analytics, audit/freeze support, authentication, and the React operations dashboard.
 
-## What is implemented
+## Implemented product flow
 
-- Integration gateway for Project 2 student/readiness data, Project 1 communication results, and Project 8 interview results.
-- Canonical validation shared by API and CSV/XLSX imports.
-- Request idempotency, duplicate result protection, import logs, failure visibility, and source metadata boundaries.
-- Project 1 and Project 8 candidate exports plus append-only result/attempt histories.
-- Advisory student analysis with a controlled FastAPI service and a deterministic NestJS fallback.
-- Stateful selection-intelligence workflow: read eligible pool, analyze, detect conflicts, recommend, require authorized approval, apply, and verify.
-- Dependency simulator for Projects 1, 2, 8 and the unavailable eligibility/ranking modules, isolated behind `DEMO_MODE`.
-- Non-mutating what-if analysis, duplicate/data-quality anomaly detection, audit history, and CSV report exports.
-- Selection and domain-capacity reports using the 18 published PEPC capacities.
-- React integration/analytics dashboard with manual import, monitoring, agent queue, and approval controls.
-- PostgreSQL/Prisma ownership schema, Docker Compose, Swagger, Jest/Supertest, Pytest, and GitHub Actions.
-
-## Safety boundary
-
-AI receives only performance/profile features and returns only strengths, gaps, trends, and domain recommendations. It has no endpoint or data model capable of writing official eligibility, marks, rank, capacity, classification, or final-selection fields. An allocation recommendation is applied only after an `ADMIN` or `PLACEMENT_COORDINATOR` supplies an explicit decision, and the resulting allocation is verified.
-
-The application persists standalone state to `data/runtime-state.json`. Docker deployment uses PostgreSQL through Prisma when `PERSISTENCE_DRIVER=postgres`. The deterministic eligibility/ranking engine remains Team A's eventual source of truth; until it is available, the explicitly labelled dependency simulator supplies replaceable demo outputs.
-
-## Run locally
-
-### Docker (recommended)
-
-```bash
-cp .env.example .env
-docker compose up --build
+```text
+Project 2
+  -> normalized student/readiness/verified-certificate data
+  -> Project 9 eligibility + ranking + HOPE/PEP classification
+  -> Project 1 communication assessment
+  -> Project 9 eligibility re-evaluation
+  -> Project 8 interview
+  -> Project 9 selection/allocation/admin review
+  -> approval + finalization + freeze
 ```
 
-- Dashboard: <http://localhost:5173>
-- Swagger/OpenAPI: <http://localhost:3000/api/docs>
-- API health: <http://localhost:3000/api/health>
-- AI service health: <http://localhost:8000/health>
+Key behavior:
+- Eligibility, ranking, capacity and final official state are deterministic and stored in PostgreSQL.
+- Capacity exhaustion produces `WAITLIST`, not `NOT_ELIGIBLE`.
+- Project 1 results trigger official eligibility re-evaluation.
+- A HOPE interview failure routes the student to PEP fallback; a subsequent failed PEP path enters `ADMIN_REVIEW`.
+- Allocation capacity claims are atomic and transaction-protected.
+- AI recommendations are advisory until an authorized human approves them; approved recommendations are applied through the official allocation service and verified.
+- CSV/XLSX fallback uses the same Project 2 DTO and official projection path as API ingestion.
+## Technology
 
-Click **Prepare standalone demo** to populate student data, calculate demo-only eligibility, and simulate Project 1 and Project 8 results. Then run the advisory agent, analyze students, test what-if improvements, and approve conflict-free recommendations.
+- React + TypeScript + Vite
+- NestJS + TypeScript
+- PostgreSQL + Prisma
+- FastAPI + Pydantic for advisory AI
+- Jest/Supertest + Pytest
+- Docker Compose + GitHub Actions
 
-### Node development
+## Local development
+
+### 1. Install dependencies
 
 ```bash
-npm install
+npm ci
+npm run prisma:generate -w apps/api
+```
+
+### 2. Start PostgreSQL
+
+Use Docker Compose or your own PostgreSQL instance.
+
+```bash
+docker compose up -d postgres
+export DATABASE_URL='postgresql://project9:project9@localhost:5432/project9?schema=public'
+npm run prisma:deploy -w apps/api
+```
+
+### 3. Start the API and web app
+
+```bash
 npm run dev
 ```
 
-Run the AI service separately if advisory-service integration is required. If it is unavailable, the API uses a bounded deterministic fallback.
+- Dashboard: <http://localhost:5173>
+- Swagger: <http://localhost:3000/api/docs>
+- API health: <http://localhost:3000/api/health>
+### 4. Optional AI service
 
 ```bash
-python3 -m venv .venv
+python3.12 -m venv .venv
 source .venv/bin/activate
 pip install -r services/ai/requirements.txt
 uvicorn services.ai.app:app --reload --port 8000
 ```
 
-## Verify
+If the AI service is unavailable, advisory analysis has a bounded deterministic fallback. Official eligibility/ranking/allocation never depends on an LLM response.
+
+## Authentication and production mode
+
+Development can run with `AUTH_REQUIRED=false`. For deployment set:
+
+```env
+AUTH_REQUIRED=true
+AUTH_TOKEN_SECRET=<32+ character random secret>
+ADMIN_BOOTSTRAP_KEY=<one-time bootstrap secret>
+INTEGRATION_API_KEY=<Project 1/2/8 shared API secret>
+PERSISTENCE_DRIVER=postgres
+OFFICIAL_PROJECTION=true
+DEMO_MODE=false
+ENABLE_FREEZE_SCHEDULER=true
+```
+
+Create the first administrator once:
+
+```bash
+curl -X POST http://localhost:3000/api/auth/bootstrap \
+  -H 'content-type: application/json' \
+  -H 'x-bootstrap-key: <ADMIN_BOOTSTRAP_KEY>' \
+  -d '{"name":"Admin","email":"admin@example.edu","password":"change-this-password"}'
+```
+
+Then sign in via `POST /api/auth/login` or the web dashboard. In production, authenticated token claims override client-supplied role/actor headers.
+External integration endpoints require `x-integration-api-key` when authentication enforcement is enabled. Modifying integration requests also require an `Idempotency-Key`.
+
+## Core endpoints
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| POST | `/api/integrations/project2/students` | Project 2 student/readiness import |
+| GET | `/api/integrations/project1/candidates?selectionCycleId=...` | Export communication candidates |
+| POST | `/api/integrations/project1/results` | Import communication results and re-evaluate |
+| GET | `/api/integrations/project8/candidates?selectionCycleId=...` | Export interview candidates |
+| POST | `/api/integrations/project8/results` | Import interview attempts and advance workflow |
+| POST | `/api/integrations/import/excel` | CSV/XLSX fallback |
+| POST | `/api/selection-pipeline/run` | Run configured scoring -> eligibility -> ranking -> HOPE/PEP/WAITLIST in one operation |
+| POST | `/api/eligibility/evaluate` | Run deterministic eligibility |
+| POST | `/api/ranking/calculate` | Calculate deterministic ranking |
+| POST | `/api/classification/calculate` | Apply HOPE/PEP capacity classification |
+| GET | `/api/selection/:cycleId/results` | Explainable selection results |
+| POST | `/api/allocations/generate` | Preference/capacity-aware allocation |
+| POST | `/api/agent/selection/run` | Produce advisory recommendations |
+| POST | `/api/agent/selection/recommendations/:id/decision` | Human approval/rejection |
+| GET | `/api/reports/selection-summary` | Official active-cycle summary |
+| GET | `/api/reports/domain-capacity` | Official domain demand/capacity |
+| GET | `/api/reports/audit-trail` | Official workflow + decision audit trail |
+## Project 2 import fields
+
+The API/CSV import accepts the existing fields plus optional `selectionCycleId`, `batchIdentifier`, `academicYear` and `readinessScore`. Verified certificates are projected to `StudentCredential`; coding, aptitude and readiness values are stored as assessment results.
+
+The exact CSV template is available at:
+
+```text
+GET /api/integrations/templates/students.csv
+```
+
+The integrated selection-pipeline scorer only uses parameters that an administrator has explicitly configured in the active weight version. Built-in source aliases currently cover `coding`, `aptitude`, `cgpa`, `attendance`, `readiness`/`project2`, `communication`, `interview`, and verified `certificateCount`; unknown configured keys are recorded as missing rather than guessed.
+
+## Verification
 
 ```bash
 npm run typecheck
 npm test
 npm run build
-python -m pytest services/ai
+
+python3.12 -m venv /tmp/project9-ai-venv
+/tmp/project9-ai-venv/bin/pip install -r services/ai/requirements.txt
+/tmp/project9-ai-venv/bin/python -m pytest services/ai
 ```
 
-The API tests cover invalid-payload rejection, idempotent replay, API/CSV mapping parity, append-only boundaries, AI non-mutation, role-gated approval, and allocation verification.
+The API suite covers deterministic rule/ranking behavior, freeze authority, capacity allocation, official Project 2 -> 9 -> 1 -> 9 -> 8 flow, AI approval into official allocation, authentication/RBAC, idempotency and reporting.
 
-## Core contracts
+## Database migrations
 
-Every modifying integration request requires an `Idempotency-Key` header. Replaying the same key returns the stored outcome with `duplicate: true` and does not create another business record.
+Production containers run `prisma migrate deploy`; they do not use `prisma db push`. The migration folders were ordered so a completely fresh PostgreSQL database can apply the full history successfully.
 
-| Method | Endpoint | Responsibility |
-|---|---|---|
-| `POST` | `/api/integrations/project2/students` | Import validated Project 2 records |
-| `GET` | `/api/integrations/project1/candidates` | Export communication-assessment candidates |
-| `POST` | `/api/integrations/project1/results` | Append communication results |
-| `GET` | `/api/integrations/project8/candidates` | Export interview candidates |
-| `POST` | `/api/integrations/project8/results` | Append interview attempts |
-| `POST` | `/api/integrations/import/excel` | CSV/XLSX fallback using the canonical DTO |
-| `GET` | `/api/integrations/templates/students.csv` | Download the exact import template |
-| `GET` | `/api/integrations/logs` | Monitor transfers and failures |
-| `POST` | `/api/ai/students/:id/analyze` | Generate advisory analysis |
-| `POST` | `/api/ai/students/:id/what-if` | Compare a non-mutating improvement scenario |
-| `GET` | `/api/ai/anomalies` | Detect duplicate and incomplete records |
-| `POST` | `/api/demo/run-dependency-simulation` | Stand in for unavailable Projects 1/2/8 and Team A modules |
-| `POST` | `/api/agent/selection/run` | Create recommendations for the eligible pool |
-| `POST` | `/api/agent/selection/recommendations/:id/decision` | Role-gated decision and verification |
-| `GET` | `/api/reports/selection-summary` | Reconciled selection totals |
-| `GET` | `/api/reports/domain-capacity` | Demand, capacity, allocated, and available seats |
-| `GET` | `/api/reports/selection.csv` | Download the selection report |
-| `GET` | `/api/reports/domain-capacity.csv` | Download the capacity report |
+If you created a local database using the older pre-integration migration names, recreate/reset that development database before using the reordered migration history.
 
-### Example Project 2 import
-
-```bash
-curl -X POST http://localhost:3000/api/integrations/project2/students \
-  -H 'content-type: application/json' \
-  -H 'Idempotency-Key: p2-batch-2026-09-24' \
-  -d '{
-    "sourceBatchId": "P2-2026-09-24",
-    "records": [{
-      "studentId": "S-001",
-      "registerNumber": "REG001",
-      "name": "Example Student",
-      "department": "CSE",
-      "email": "student@example.edu",
-      "cgpa": 8.2,
-      "codingScore": 78,
-      "aptitudeScore": 74,
-      "attendancePercent": 91,
-      "dsaLevel": "INTERMEDIATE",
-      "preferences": ["PEPC-01 AI/ML", "PEPC-05 Data Science"],
-      "completedCertificates": ["Data Science Foundation"],
-      "program": "UNASSIGNED",
-      "sourceUpdatedAt": "2026-09-24T00:00:00.000Z"
-    }]
-  }'
-```
-
-## Merge points for the rest of the team
-
-1. Disable `DEMO_MODE` and map the provided adapters to the real Project 1, 2, and 8 endpoints.
-2. Subscribe to the deterministic rules engine's `student.eligibility.recalculated` event after Project 1/8 imports.
-3. Read eligible students and official cycle context from Team A instead of the local store.
-4. Write a verified allocation through Team A's authorized allocation command, never through the AI service.
-5. Connect the project's authentication middleware so `x-role` comes from signed claims rather than a request header. The standalone module keeps this replaceable boundary visible.
-
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for ownership boundaries and operational steps.
+See `docs/ARCHITECTURE.md` and `docs/DEPLOYMENT.md` for operational details.

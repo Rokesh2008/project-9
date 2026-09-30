@@ -12,7 +12,7 @@ import { RankingService } from './ranking.service';
 import { CalculateRankingDto, RankingQueryDto } from './ranking.dto';
 
 @ApiTags('Ranking')
-@Controller('api/ranking')
+@Controller('ranking')
 export class RankingController {
   constructor(private readonly ranking: RankingService) {}
 

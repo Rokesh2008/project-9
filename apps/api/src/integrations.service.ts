@@ -7,59 +7,84 @@ import { Readable } from 'stream';
 import { Project1ResultsDto, Project2ImportDto, Project8ResultsDto } from './dto';
 import { CanonicalStudent, IntegrationLog, SourceCode } from './domain';
 import { Store } from './store';
+import { OfficialIntegrationService } from './official-integration.service';
 
 @Injectable()
 export class IntegrationsService {
-  constructor(private readonly store: Store) {}
+  constructor(
+    private readonly store: Store,
+    private readonly official: OfficialIntegrationService,
+  ) {}
 
-  importProject2(payload: Project2ImportDto, idempotencyKey: string) {
-    return this.once(idempotencyKey, 'PROJECT_2', 'students.import', 'API', payload.records.length, () => {
-      for (const row of payload.records) {
-        const current = this.store.students.get(row.studentId);
-        const student: CanonicalStudent = {
-          ...row,
-          name: row.name.trim(),
-          registerNumber: row.registerNumber.trim().toUpperCase(),
-          preferences: row.preferences.map((x) => x.trim()).filter(Boolean),
-          completedCertificates: row.completedCertificates.map((x) => x.trim()).filter(Boolean),
-          program: row.program ?? current?.program ?? 'UNASSIGNED',
-          interviewEligible: current?.interviewEligible ?? false,
-          selected: current?.selected ?? false,
-        };
-        this.store.students.set(row.studentId, student);
-      }
-      return { imported: payload.records.length, sourceBatchId: payload.sourceBatchId };
-    });
+  async importProject2(payload: Project2ImportDto, idempotencyKey: string) {
+    const result = this.once(
+      idempotencyKey,
+      'PROJECT_2',
+      'students.import',
+      'API',
+      payload.records.length,
+      () => this.importProject2Unchecked(payload),
+    );
+
+    const official = await this.official.importProject2(payload);
+
+    return { ...result, official };
   }
 
-  importProject1(payload: Project1ResultsDto, idempotencyKey: string) {
-    return this.once(idempotencyKey, 'PROJECT_1', 'communication-results.import', 'API', payload.records.length, () => {
-      const unknown = payload.records.find((row) => !this.store.students.has(row.studentId));
-      if (unknown) throw new BadRequestException(`Unknown student ${unknown.studentId}`);
-      let inserted = 0;
-      for (const row of payload.records) {
-        if (!this.store.communicationResults.has(row.resultId)) {
-          this.store.communicationResults.set(row.resultId, row);
-          inserted++;
+  async importProject1(payload: Project1ResultsDto, idempotencyKey: string) {
+    const result = this.once(
+      idempotencyKey,
+      'PROJECT_1',
+      'communication-results.import',
+      'API',
+      payload.records.length,
+      () => {
+        const unknown = payload.records.find((row) => !this.store.students.has(row.studentId));
+        if (!this.official.enabled() && unknown) {
+          throw new BadRequestException(`Unknown student ${unknown.studentId}`);
         }
-      }
-      return { inserted, ignoredDuplicates: payload.records.length - inserted, reEvaluationQueued: inserted };
-    });
+        let inserted = 0;
+        for (const row of payload.records) {
+          if (!this.store.communicationResults.has(row.resultId)) {
+            this.store.communicationResults.set(row.resultId, row);
+            inserted++;
+          }
+        }
+        return { inserted, ignoredDuplicates: payload.records.length - inserted, reEvaluationQueued: inserted };
+      },
+    );
+
+    const official = await this.official.importProject1(payload);
+
+    return { ...result, official };
   }
 
-  importProject8(payload: Project8ResultsDto, idempotencyKey: string) {
-    return this.once(idempotencyKey, 'PROJECT_8', 'interview-results.import', 'API', payload.records.length, () => {
-      const unknown = payload.records.find((row) => !this.store.students.has(row.studentId));
-      if (unknown) throw new BadRequestException(`Unknown student ${unknown.studentId}`);
-      let inserted = 0;
-      for (const row of payload.records) {
-        if (!this.store.interviewResults.has(row.attemptId)) {
-          this.store.interviewResults.set(row.attemptId, row);
-          inserted++;
+  async importProject8(payload: Project8ResultsDto, idempotencyKey: string) {
+    const result = this.once(
+      idempotencyKey,
+      'PROJECT_8',
+      'interview-results.import',
+      'API',
+      payload.records.length,
+      () => {
+        const unknown = payload.records.find((row) => !this.store.students.has(row.studentId));
+        if (!this.official.enabled() && unknown) {
+          throw new BadRequestException(`Unknown student ${unknown.studentId}`);
         }
-      }
-      return { inserted, ignoredDuplicates: payload.records.length - inserted, reEvaluationQueued: inserted };
-    });
+        let inserted = 0;
+        for (const row of payload.records) {
+          if (!this.store.interviewResults.has(row.attemptId)) {
+            this.store.interviewResults.set(row.attemptId, row);
+            inserted++;
+          }
+        }
+        return { inserted, ignoredDuplicates: payload.records.length - inserted, reEvaluationQueued: inserted };
+      },
+    );
+
+    const official = await this.official.importProject8(payload);
+
+    return { ...result, official };
   }
 
   async importSpreadsheet(buffer: Buffer, filename: string, idempotencyKey: string) {
@@ -85,12 +110,20 @@ export class IntegrationsService {
       if (Object.values(record).some((value) => String(value).trim() !== '')) rows.push(record);
     });
     const payload = plainToInstance(Project2ImportDto, {
+      selectionCycleId: rows[0]?.selectionCycleId
+        ? String(rows[0].selectionCycleId)
+        : undefined,
       sourceBatchId: `manual:${filename}`,
       records: rows.map((row) => ({
         studentId: String(row.studentId),
         registerNumber: String(row.registerNumber),
         name: String(row.name),
         department: String(row.department),
+        batchIdentifier: row.batchIdentifier ? String(row.batchIdentifier) : undefined,
+        academicYear: row.academicYear ? String(row.academicYear) : undefined,
+        readinessScore: row.readinessScore === undefined || row.readinessScore === ''
+          ? undefined
+          : Number(row.readinessScore),
         email: row.email ? String(row.email) : undefined,
         cgpa: Number(row.cgpa),
         codingScore: Number(row.codingScore),
@@ -113,30 +146,48 @@ export class IntegrationsService {
       throw new BadRequestException({ message: 'Spreadsheet validation failed', details });
     }
     const method = filename.toLowerCase().endsWith('.csv') ? 'CSV' : 'XLSX';
-    return this.once(idempotencyKey, 'EXCEL', 'students.import', method, rows.length, () =>
-      this.importProject2Unchecked(payload),
+    const result = this.once(
+      idempotencyKey,
+      'EXCEL',
+      'students.import',
+      method,
+      rows.length,
+      () => this.importProject2Unchecked(payload),
     );
+
+    const official = await this.official.importProject2(payload);
+
+    return { ...result, official };
   }
 
   listLogs() {
     return [...this.store.logs].reverse();
   }
 
-  exportProject1Candidates() {
-    return [...this.store.students.values()].filter((s) => s.interviewEligible && !this.hasCommunicationResult(s.studentId));
+  async exportProject1Candidates(selectionCycleId?: string) {
+    const official = await this.official.exportProject1Candidates(selectionCycleId);
+    if (official) return official;
+    return [...this.store.students.values()].filter(
+      (s) => s.interviewEligible && !this.hasCommunicationResult(s.studentId),
+    );
   }
 
-  exportProject8Candidates() {
-    return [...this.store.students.values()].filter((s) => s.interviewEligible && !this.hasInterviewResult(s.studentId));
+  async exportProject8Candidates(selectionCycleId?: string) {
+    const official = await this.official.exportProject8Candidates(selectionCycleId);
+    if (official) return official;
+    return [...this.store.students.values()].filter(
+      (s) => s.interviewEligible && !this.hasInterviewResult(s.studentId),
+    );
   }
 
   templateCsv() {
     const headers = [
-      'studentId', 'registerNumber', 'name', 'department', 'email', 'cgpa', 'codingScore',
-      'aptitudeScore', 'attendancePercent', 'dsaLevel', 'preferences', 'completedCertificates',
-      'program', 'sourceUpdatedAt',
+      'selectionCycleId', 'studentId', 'registerNumber', 'name', 'department',
+      'batchIdentifier', 'academicYear', 'readinessScore', 'email', 'cgpa',
+      'codingScore', 'aptitudeScore', 'attendancePercent', 'dsaLevel',
+      'preferences', 'completedCertificates', 'program', 'sourceUpdatedAt',
     ];
-    return `${headers.join(',')}\nS-001,REG001,Example Student,CSE,student@example.edu,8.2,78,74,91,INTERMEDIATE,PEPC-01 AI/ML|PEPC-05 Data Science,Data Science Foundation,UNASSIGNED,2026-09-24T00:00:00.000Z\n`;
+    return `${headers.join(',')}\n,S-001,REG001,Example Student,CSE,CSE-2026,2026,174,student@example.edu,8.2,78,74,91,INTERMEDIATE,PEPC-01 AI/ML|PEPC-05 Data Science,Data Science Foundation,UNASSIGNED,2026-09-24T00:00:00.000Z\n`;
   }
 
   private importProject2Unchecked(payload: Project2ImportDto) {

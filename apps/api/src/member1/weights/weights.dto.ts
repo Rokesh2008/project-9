@@ -13,10 +13,12 @@ export class ParameterWeightDto {
 
   @ApiProperty()
   @IsNumber()
+  @Min(0)
   weight!: number;
 
   @ApiProperty()
   @IsNumber()
+  @Min(0.000001)
   maxRawScore!: number;
 
   @ApiProperty()

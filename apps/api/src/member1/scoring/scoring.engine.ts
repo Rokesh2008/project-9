@@ -26,8 +26,14 @@ export interface ScoreCalculationResult {
   totalScore: number;
 }
 
-export function normalize(rawScore: number): number {
-  return rawScore;
+export function normalize(rawScore: number, maxRawScore: number = 100): number {
+  if (!Number.isFinite(maxRawScore) || maxRawScore <= 0) {
+    throw new Error('maxRawScore must be a positive finite number');
+  }
+  if (!Number.isFinite(rawScore) || rawScore < 0 || rawScore > maxRawScore) {
+    throw new Error(`rawScore ${rawScore} must be between 0 and ${maxRawScore}`);
+  }
+  return (rawScore / maxRawScore) * 100;
 }
 
 export function computeWeightedScore(
@@ -45,7 +51,7 @@ export function resolveParameterScore(
   const isMissing =
     !input || input.rawScore === null || input.rawScore === undefined;
   const rawScore = isMissing ? 0 : input!.rawScore!;
-  const normalizedScore = normalize(rawScore);
+  const normalizedScore = normalize(rawScore, weightConfig.maxRawScore);
   const weight = weightConfig.weight;
   const weightedScore = computeWeightedScore(normalizedScore, weight);
 

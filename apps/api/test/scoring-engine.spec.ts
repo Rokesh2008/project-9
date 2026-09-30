@@ -22,7 +22,7 @@ describe('Scoring Engine — pure calculation functions', () => {
       expect(normalize(80)).toBe(80);
       expect(normalize(0)).toBe(0);
       expect(normalize(100)).toBe(100);
-      expect(normalize(3.14)).toBe(3.14);
+      expect(normalize(3.14)).toBeCloseTo(3.14);
     });
   });
 
@@ -313,9 +313,10 @@ describe('Scoring Engine — pure calculation functions', () => {
       const cgpa = result.parameterScores.find(
         (p) => p.parameterKey === 'cgpa',
       )!;
-      expect(cgpa.weightedScore).toBeCloseTo(1.7);
+      expect(cgpa.normalizedScore).toBeCloseTo(85);
+      expect(cgpa.weightedScore).toBeCloseTo(17);
 
-      expect(result.totalScore).toBeCloseTo(62.7);
+      expect(result.totalScore).toBeCloseTo(78);
     });
 
     it('handles missing parameters with isMissing=true and rawScore=0', () => {
@@ -388,7 +389,7 @@ describe('Scoring Engine — pure calculation functions', () => {
       );
 
       const manualTotal =
-        100 * 0.5 + 100 * 0.3 + 10 * 0.2;
+        100 * 0.5 + 100 * 0.3 + 100 * 0.2;
       expect(result.totalScore).toBeCloseTo(manualTotal);
     });
 
