@@ -29,7 +29,7 @@ services:
       AI_SERVICE_URL: http://ai:8000
       PORT: 3000
       WEB_ORIGIN: http://localhost:5173
-      PERSISTENCE_DRIVER: postgres
+      JWT_SECRET: project9-docker-dev-secret
       DEMO_MODE: "true"
     ports: ["3000:3000"]
     depends_on:

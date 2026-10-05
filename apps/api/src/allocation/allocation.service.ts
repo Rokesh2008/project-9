@@ -240,6 +240,18 @@ export class AllocationService {
       where: { studentId_selectionCycleId: { studentId, selectionCycleId } },
     });
 
+    if (scs && scs.currentState === fromState && !scs.isFrozen) {
+      await this.prisma.studentCycleStatus.update({
+        where: { id: scs.id },
+        data: {
+          currentState: toState as any,
+          ...(toState === 'FROZEN'
+            ? { isFrozen: true, frozenAt: new Date(), frozenBy: actor }
+            : {}),
+        },
+      });
+    }
+
     await this.prisma.workflowAuditLog.create({
       data: {
         studentCycleStatusId: scs?.id ?? null,

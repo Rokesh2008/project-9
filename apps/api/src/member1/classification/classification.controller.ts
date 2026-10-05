@@ -5,9 +5,10 @@ import {
   Param,
   Body,
   Query,
-  Headers,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiHeader } from '@nestjs/swagger';
+import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { Roles } from '../../auth/decorators/roles.decorator';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { ClassificationService } from './classification.service';
 import {
   CalculateClassificationDto,
@@ -15,26 +16,26 @@ import {
 } from './classification.dto';
 
 @ApiTags('Classification')
-@Controller('api/classification')
+@Controller('classification')
 export class ClassificationController {
   constructor(private readonly classification: ClassificationService) {}
 
   @Post('calculate')
+  @Roles('ADMIN', 'PLACEMENT_COORDINATOR')
   @ApiOperation({ summary: 'Calculate HOPE/PEP classification from live ranking' })
-  @ApiHeader({ name: 'x-actor-id', required: true })
   async calculate(
     @Body() dto: CalculateClassificationDto,
-    @Headers('x-actor-id') actorId: string,
+    @CurrentUser('id') actorId: string,
   ) {
     return this.classification.calculate(dto.selectionCycleId, actorId);
   }
 
   @Post(':selectionCycleId/frozen')
+  @Roles('ADMIN', 'PLACEMENT_COORDINATOR')
   @ApiOperation({ summary: 'Calculate HOPE/PEP classification from frozen snapshot' })
-  @ApiHeader({ name: 'x-actor-id', required: true })
   async calculateFrozen(
     @Param('selectionCycleId') selectionCycleId: string,
-    @Headers('x-actor-id') actorId: string,
+    @CurrentUser('id') actorId: string,
   ) {
     return this.classification.calculateFrozenClassification(
       selectionCycleId,
@@ -43,6 +44,7 @@ export class ClassificationController {
   }
 
   @Get(':selectionCycleId/authority')
+  @Roles('ADMIN', 'PLACEMENT_COORDINATOR', 'PEP_STAFF')
   @ApiOperation({ summary: 'Resolve selection ranking authority (live vs frozen)' })
   async getAuthority(
     @Param('selectionCycleId') selectionCycleId: string,
@@ -51,6 +53,7 @@ export class ClassificationController {
   }
 
   @Get(':selectionCycleId')
+  @Roles('ADMIN', 'PLACEMENT_COORDINATOR', 'PEP_STAFF')
   @ApiOperation({ summary: 'Get classifications for a cycle' })
   async getClassifications(
     @Param('selectionCycleId') selectionCycleId: string,
@@ -64,6 +67,7 @@ export class ClassificationController {
   }
 
   @Get(':selectionCycleId/student/:studentId')
+  @Roles('ADMIN', 'PLACEMENT_COORDINATOR', 'PEP_STAFF')
   @ApiOperation({ summary: 'Get classification for a specific student' })
   async getStudentClassification(
     @Param('selectionCycleId') selectionCycleId: string,

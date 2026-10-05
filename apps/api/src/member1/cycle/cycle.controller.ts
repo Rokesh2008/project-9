@@ -1,46 +1,48 @@
-import { Controller, Post, Get, Patch, Param, Body, Headers } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiHeader } from '@nestjs/swagger';
+import { Controller, Post, Get, Patch, Param, Body } from '@nestjs/common';
+import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { Roles } from '../../auth/decorators/roles.decorator';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { CycleService } from './cycle.service';
 import { CreateCycleConfigDto, UpdateCycleConfigDto } from './cycle.dto';
 
 @ApiTags('Cycle Config')
-@Controller('api/cycles')
+@Controller('cycles')
 export class CycleController {
   constructor(private readonly cycle: CycleService) {}
 
   @Post('config')
+  @Roles('ADMIN')
   @ApiOperation({ summary: 'Create Member 1 config for a selection cycle' })
-  @ApiHeader({ name: 'x-role', required: true })
-  @ApiHeader({ name: 'x-actor-id', required: true })
   async createConfig(
-    @Body() _dto: CreateCycleConfigDto,
-    @Headers('x-role') _role: string,
-    @Headers('x-actor-id') _actorId: string,
+    @Body() dto: CreateCycleConfigDto,
+    @CurrentUser('id') actorId: string,
   ) {
-    // TODO: Implement in Prompt 04+
-    throw new Error('Not implemented');
+    return this.cycle.createConfig(
+      dto.selectionCycleId,
+      dto.hopeCount,
+      dto.pepCount,
+      actorId,
+    );
   }
 
   @Patch('config/:selectionCycleId')
+  @Roles('ADMIN')
   @ApiOperation({ summary: 'Update cycle config (HOPE/PEP counts, active versions)' })
-  @ApiHeader({ name: 'x-role', required: true })
-  @ApiHeader({ name: 'x-actor-id', required: true })
   async updateConfig(
-    @Param('selectionCycleId') _selectionCycleId: string,
-    @Body() _dto: UpdateCycleConfigDto,
-    @Headers('x-role') _role: string,
-    @Headers('x-actor-id') _actorId: string,
+    @Param('selectionCycleId') selectionCycleId: string,
+    @Body() dto: UpdateCycleConfigDto,
+    @CurrentUser('id') actorId: string,
   ) {
-    // TODO: Implement in Prompt 04+
-    throw new Error('Not implemented');
+    await this.cycle.updateConfig(selectionCycleId, dto, actorId);
+    return { success: true };
   }
 
   @Get('config/:selectionCycleId')
+  @Roles('ADMIN', 'PLACEMENT_COORDINATOR', 'PEP_STAFF')
   @ApiOperation({ summary: 'Get cycle config' })
   async getConfig(
-    @Param('selectionCycleId') _selectionCycleId: string,
+    @Param('selectionCycleId') selectionCycleId: string,
   ) {
-    // TODO: Implement in Prompt 04+
-    throw new Error('Not implemented');
+    return this.cycle.getConfig(selectionCycleId);
   }
 }

@@ -10,9 +10,10 @@ async function bootstrap() {
   app.enableCors({ origin: process.env.WEB_ORIGIN?.split(',') ?? true });
   app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true }));
   const config = new DocumentBuilder()
-    .setTitle('Project 9 - Member 3 API')
-    .setDescription('Integration, advisory AI, agent approval, analytics and fallback import API')
-    .setVersion('1.0.0')
+    .setTitle('Project 9 — Student Selection & Allocation Platform')
+    .setDescription('Unified API for eligibility, scoring, ranking, classification, allocation, AI advisory, integrations, and reporting')
+    .setVersion('2.0.0')
+    .addBearerAuth()
     .addApiKey({ type: 'apiKey', name: 'Idempotency-Key', in: 'header' }, 'idempotency')
     .build();
   SwaggerModule.setup('api/docs', app, SwaggerModule.createDocument(app, config));

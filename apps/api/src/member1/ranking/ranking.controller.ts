@@ -5,24 +5,24 @@ import {
   Param,
   Body,
   Query,
-  Headers,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiHeader } from '@nestjs/swagger';
+import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { Roles } from '../../auth/decorators/roles.decorator';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { RankingService } from './ranking.service';
 import { CalculateRankingDto, RankingQueryDto } from './ranking.dto';
 
 @ApiTags('Ranking')
-@Controller('api/ranking')
+@Controller('ranking')
 export class RankingController {
   constructor(private readonly ranking: RankingService) {}
 
   @Post('calculate')
+  @Roles('ADMIN', 'PLACEMENT_COORDINATOR')
   @ApiOperation({ summary: 'Calculate/recalculate the common live ranking for a cycle' })
-  @ApiHeader({ name: 'x-role', required: true })
-  @ApiHeader({ name: 'x-actor-id', required: true })
   async calculate(
     @Body() dto: CalculateRankingDto,
-    @Headers('x-actor-id') actorId: string,
+    @CurrentUser('id') actorId: string,
   ) {
     return this.ranking.calculate(
       dto.selectionCycleId,
@@ -32,6 +32,7 @@ export class RankingController {
   }
 
   @Get(':selectionCycleId')
+  @Roles('ADMIN', 'PLACEMENT_COORDINATOR', 'PEP_STAFF')
   @ApiOperation({ summary: 'Get the live ranking for a cycle' })
   async getLiveRanking(
     @Param('selectionCycleId') selectionCycleId: string,
@@ -45,6 +46,7 @@ export class RankingController {
   }
 
   @Get(':selectionCycleId/student/:studentId')
+  @Roles('ADMIN', 'PLACEMENT_COORDINATOR', 'PEP_STAFF')
   @ApiOperation({ summary: 'Get rank for a specific student' })
   async getStudentRank(
     @Param('selectionCycleId') selectionCycleId: string,

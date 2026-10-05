@@ -162,6 +162,57 @@ export class ScoringService {
     return result;
   }
 
+  async calculateBatch(
+    selectionCycleId: string,
+    actorId: string,
+    weightVersionId?: string,
+  ) {
+    const { weightVersion, weightConfigs } =
+      await this.loadActiveWeights(selectionCycleId);
+
+    const eligible = await this.prisma.eligibilityResult.findMany({
+      where: { selectionCycleId, isEligible: true },
+      select: { studentId: true },
+    });
+
+    const paramKeyToAssessmentType: Record<string, string> = {
+      APTITUDE: 'APTITUDE',
+      GPA: 'GPA',
+      TECHNICAL: 'CODING',
+    };
+
+    let scored = 0;
+    for (const { studentId } of eligible) {
+      const assessments = await this.prisma.assessmentResult.findMany({
+        where: { studentId },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      const parameterScores: ParameterScoreInput[] = weightConfigs.map((wc) => {
+        const assessType = paramKeyToAssessmentType[wc.parameterKey] ?? wc.parameterKey;
+        const match = assessments.find((a) => a.assessmentType === assessType);
+        return {
+          parameterKey: wc.parameterKey,
+          rawScore: match?.score ?? null,
+        };
+      });
+
+      try {
+        await this.calculateStudentScores(
+          selectionCycleId,
+          studentId,
+          parameterScores,
+          actorId,
+        );
+        scored++;
+      } catch {
+        // skip students with errors
+      }
+    }
+
+    return { scored, total: eligible.length };
+  }
+
   async loadActiveWeights(selectionCycleId: string): Promise<{
     weightVersion: { id: string; version: number };
     weightConfigs: ParameterWeightConfig[];

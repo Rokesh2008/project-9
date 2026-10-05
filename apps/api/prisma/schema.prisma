@@ -13,6 +13,7 @@ datasource db {
 
 enum Role {
   ADMIN
+  PLACEMENT_COORDINATOR
   COORDINATOR
   PEP_STAFF
   STUDENT
@@ -45,6 +46,7 @@ enum AssessmentType {
   TECHNICAL
   INTERVIEW
   APTITUDE
+  GPA
   OTHER
 }
 
@@ -660,12 +662,6 @@ model FreezeNotificationEvent {
 // ==========================================
 // MEMBER 3 - INTEGRATION & AI MODELS
 // ==========================================
-
-model RuntimeState {
-  id        String   @id
-  payload   Json
-  updatedAt DateTime @updatedAt
-}
 
 enum IntegrationStatus {
   PROCESSING

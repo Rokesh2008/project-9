@@ -1,11 +1,13 @@
-import { Controller, Post, Get, Param, Body, Headers } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiHeader } from '@nestjs/swagger';
+import { Controller, Post, Get, Param, Body } from '@nestjs/common';
+import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { Roles } from '../../auth/decorators/roles.decorator';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { FreezeService } from './freeze.service';
 import { FreezeNotificationService } from './freeze-notification.service';
 import { ScheduleFreezeDto, CancelFreezeDto, ExecuteFreezeDto, PostponeFreezeDto, RefreezeDto } from './freeze.dto';
 
 @ApiTags('Freeze')
-@Controller('api/freeze')
+@Controller('freeze')
 export class FreezeController {
   constructor(
     private readonly freeze: FreezeService,
@@ -13,11 +15,11 @@ export class FreezeController {
   ) {}
 
   @Post('schedule')
+  @Roles('ADMIN', 'PLACEMENT_COORDINATOR')
   @ApiOperation({ summary: 'Schedule a ranking freeze' })
-  @ApiHeader({ name: 'x-actor-id', required: true })
   async schedule(
     @Body() dto: ScheduleFreezeDto,
-    @Headers('x-actor-id') actorId: string,
+    @CurrentUser('id') actorId: string,
   ) {
     return this.freeze.schedule(
       dto.selectionCycleId,
@@ -27,22 +29,22 @@ export class FreezeController {
   }
 
   @Post(':selectionCycleId/execute')
+  @Roles('ADMIN', 'PLACEMENT_COORDINATOR')
   @ApiOperation({ summary: 'Execute freeze for a selection cycle' })
-  @ApiHeader({ name: 'x-actor-id', required: true })
   async execute(
     @Param('selectionCycleId') selectionCycleId: string,
-    @Headers('x-actor-id') actorId: string,
+    @CurrentUser('id') actorId: string,
     @Body() dto: ExecuteFreezeDto,
   ) {
     return this.freeze.executeFreeze(selectionCycleId, actorId, dto.reason);
   }
 
   @Post(':selectionCycleId/postpone')
+  @Roles('ADMIN', 'PLACEMENT_COORDINATOR')
   @ApiOperation({ summary: 'Postpone a scheduled freeze' })
-  @ApiHeader({ name: 'x-actor-id', required: true })
   async postpone(
     @Param('selectionCycleId') selectionCycleId: string,
-    @Headers('x-actor-id') actorId: string,
+    @CurrentUser('id') actorId: string,
     @Body() dto: PostponeFreezeDto,
   ) {
     return this.freeze.postpone(
@@ -54,11 +56,11 @@ export class FreezeController {
   }
 
   @Post(':selectionCycleId/cancel')
+  @Roles('ADMIN', 'PLACEMENT_COORDINATOR')
   @ApiOperation({ summary: 'Cancel a scheduled freeze' })
-  @ApiHeader({ name: 'x-actor-id', required: true })
   async cancel(
     @Param('selectionCycleId') selectionCycleId: string,
-    @Headers('x-actor-id') actorId: string,
+    @CurrentUser('id') actorId: string,
     @Body() dto: CancelFreezeDto,
   ) {
     await this.freeze.cancel(selectionCycleId, actorId, dto.reason);
@@ -66,17 +68,18 @@ export class FreezeController {
   }
 
   @Post(':selectionCycleId/refreeze')
+  @Roles('ADMIN', 'PLACEMENT_COORDINATOR')
   @ApiOperation({ summary: 'Critical re-freeze: create a new versioned snapshot while preserving the previous one' })
-  @ApiHeader({ name: 'x-actor-id', required: true })
   async refreeze(
     @Param('selectionCycleId') selectionCycleId: string,
-    @Headers('x-actor-id') actorId: string,
+    @CurrentUser('id') actorId: string,
     @Body() dto: RefreezeDto,
   ) {
     return this.freeze.refreeze(selectionCycleId, actorId, dto.reason);
   }
 
   @Get(':selectionCycleId')
+  @Roles('ADMIN', 'PLACEMENT_COORDINATOR', 'PEP_STAFF')
   @ApiOperation({ summary: 'Get freeze schedules for a cycle' })
   async getSchedule(
     @Param('selectionCycleId') selectionCycleId: string,
@@ -85,6 +88,7 @@ export class FreezeController {
   }
 
   @Get(':selectionCycleId/notifications')
+  @Roles('ADMIN', 'PLACEMENT_COORDINATOR', 'PEP_STAFF')
   @ApiOperation({ summary: 'Get planned freeze notification events for a cycle' })
   async getNotifications(
     @Param('selectionCycleId') selectionCycleId: string,
