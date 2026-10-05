@@ -1,0 +1,478 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// MEMBER 2 - ENUMS
+// ==========================================
+
+enum Role {
+  ADMIN
+  COORDINATOR
+  PEP_STAFF
+  STUDENT
+}
+
+enum WorkflowState {
+  IMPORTED
+  ELIGIBILITY
+  HOPE_PEP
+  COMMUNICATION
+  INTERVIEW
+  SELECTION
+  ALLOCATION
+  ADMIN_REVIEW
+  FINALIZED
+  FROZEN
+}
+
+enum CycleStatus {
+  DRAFT
+  ACTIVE
+  FROZEN
+  COMPLETED
+  ARCHIVED
+}
+
+enum AssessmentType {
+  CODING
+  COMMUNICATION
+  TECHNICAL
+  INTERVIEW
+  APTITUDE
+  OTHER
+}
+
+enum AllocationStatus {
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  FROZEN
+  MANUAL_REVIEW
+}
+
+enum AdminDecisionType {
+  APPROVE_ALLOCATION
+  OVERRIDE_ALLOCATION
+  REJECT_ALLOCATION
+  REQUEST_RE_ALLOCATION
+  SPECIAL_CONSIDERATION
+}
+
+enum NotificationType {
+  WORKFLOW_TRANSITION
+  PREFERENCE_SUBMITTED
+  SELECTION_STATUS
+  ALLOCATION_RESULT
+  ADMIN_DECISION
+  FINALIZATION
+  FREEZE
+  GENERAL
+}
+
+// ==========================================
+// MEMBER 2 - CORE ENTITIES
+// ==========================================
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      Role     @default(STUDENT)
+  studentId String?  @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  student   Student? @relation(fields: [studentId], references: [id], onDelete: SetNull)
+}
+
+model Department {
+  id        String   @id @default(uuid())
+  code      String   @unique
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  batches   Batch[]
+}
+
+model Batch {
+  id              String     @id @default(uuid())
+  batchIdentifier String     @unique
+  academicYear    String
+  departmentId    String
+  department      Department @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  status          String     @default("ACTIVE")
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  students        Student[]
+
+  @@index([departmentId])
+  @@index([academicYear])
+}
+
+model Student {
+  id                String               @id @default(uuid())
+  studentId         String               @unique
+  name              String
+  email             String               @unique
+  contactNo         String?
+  batchId           String
+  batch             Batch                @relation(fields: [batchId], references: [id], onDelete: Restrict)
+  isActive          Boolean              @default(true)
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  user              User?
+  assessmentResults AssessmentResult[]
+  preferences       StudentPreference[]
+  cycleStatuses     StudentCycleStatus[]
+  allocations       Allocation[]
+  adminDecisions    AdminDecision[]
+  workflowAudits    WorkflowAuditLog[]
+
+  @@index([batchId])
+  @@index([studentId])
+  @@index([email])
+}
+
+model SelectionCycle {
+  id                   String               @id @default(uuid())
+  code                 String               @unique
+  name                 String
+  academicPeriod       String
+  startDate            DateTime
+  endDate              DateTime
+  status               CycleStatus          @default(ACTIVE)
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  studentCycleStatuses StudentCycleStatus[]
+  preferences          StudentPreference[]
+  allocations          Allocation[]
+  adminDecisions       AdminDecision[]
+  workflowAudits       WorkflowAuditLog[]
+}
+
+model AssessmentResult {
+  id               String         @id @default(uuid())
+  studentId        String
+  student          Student        @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  sourceIdentifier String
+  assessmentType   AssessmentType @default(TECHNICAL)
+  score            Float
+  maxScore         Float          @default(100.0)
+  percentage       Float?
+  attemptNumber    Int            @default(1)
+  assessmentDate   DateTime       @default(now())
+  metadata         Json?
+  createdAt        DateTime       @default(now())
+
+  @@index([studentId, assessmentType])
+  @@index([studentId, createdAt])
+}
+
+model Program {
+  id          String    @id @default(uuid())
+  code        String    @unique
+  name        String
+  description String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  domains     Domain[]
+}
+
+model Domain {
+  id              String              @id @default(uuid())
+  programId       String
+  program         Program             @relation(fields: [programId], references: [id], onDelete: Restrict)
+  code            String              @unique
+  name            String
+  description     String?
+  isActive        Boolean             @default(true)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  requirements    DomainRequirement[]
+  trainingBatches TrainingBatch[]
+  preferences     StudentPreference[]
+  allocations     Allocation[]
+
+  @@index([programId])
+}
+
+model DomainRequirement {
+  id              String   @id @default(uuid())
+  domainId        String
+  domain          Domain   @relation(fields: [domainId], references: [id], onDelete: Cascade)
+  requirementType String
+  requirementKey  String
+  minimumValue    Float?
+  stringValue     String?
+  isMandatory     Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([domainId])
+}
+
+model TrainingBatch {
+  id               String       @id @default(uuid())
+  domainId         String
+  domain           Domain       @relation(fields: [domainId], references: [id], onDelete: Restrict)
+  batchCode        String       @unique
+  batchName        String
+  startDate        DateTime?
+  endDate          DateTime?
+  scheduleInfo     String?
+  maxCapacity      Int
+  currentAllocated Int          @default(0)
+  isActive         Boolean      @default(true)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  allocations      Allocation[]
+
+  @@index([domainId])
+}
+
+model StudentPreference {
+  id               String         @id @default(uuid())
+  studentId        String
+  student          Student        @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  selectionCycleId String
+  selectionCycle   SelectionCycle @relation(fields: [selectionCycleId], references: [id], onDelete: Cascade)
+  domainId         String
+  domain           Domain         @relation(fields: [domainId], references: [id], onDelete: Restrict)
+  preferenceRank   Int
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@unique([studentId, selectionCycleId, preferenceRank])
+  @@unique([studentId, selectionCycleId, domainId])
+  @@index([studentId, selectionCycleId])
+}
+
+model StudentCycleStatus {
+  id               String             @id @default(uuid())
+  studentId        String
+  student          Student            @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  selectionCycleId String
+  selectionCycle   SelectionCycle     @relation(fields: [selectionCycleId], references: [id], onDelete: Cascade)
+  currentState     WorkflowState      @default(IMPORTED)
+  isFrozen         Boolean            @default(false)
+  frozenAt         DateTime?
+  frozenBy         String?
+  metadata         Json?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  auditLogs        WorkflowAuditLog[]
+
+  @@unique([studentId, selectionCycleId])
+  @@index([studentId, selectionCycleId])
+}
+
+model WorkflowAuditLog {
+  id                   String              @id @default(uuid())
+  studentCycleStatusId String?
+  studentCycleStatus   StudentCycleStatus? @relation(fields: [studentCycleStatusId], references: [id], onDelete: SetNull)
+  studentId            String
+  student              Student             @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  selectionCycleId     String
+  selectionCycle       SelectionCycle      @relation(fields: [selectionCycleId], references: [id], onDelete: Cascade)
+  fromState            WorkflowState
+  toState              WorkflowState
+  actor                String
+  role                 String
+  reason               String?
+  metadata             Json?
+  createdAt            DateTime            @default(now())
+
+  @@index([studentId, selectionCycleId])
+  @@index([createdAt])
+}
+
+model Allocation {
+  id                       String           @id @default(uuid())
+  studentId                String
+  student                  Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  selectionCycleId         String
+  selectionCycle           SelectionCycle   @relation(fields: [selectionCycleId], references: [id], onDelete: Cascade)
+  domainId                 String?
+  domain                   Domain?          @relation(fields: [domainId], references: [id], onDelete: SetNull)
+  trainingBatchId          String?
+  trainingBatch            TrainingBatch?   @relation(fields: [trainingBatchId], references: [id], onDelete: SetNull)
+  status                   AllocationStatus @default(PENDING_APPROVAL)
+  preferenceRankUsed       Int?
+  selectionResultReference String?
+  failureReason            String?
+  allocatedAt              DateTime         @default(now())
+  isFinalized              Boolean          @default(false)
+  finalizedAt              DateTime?
+  finalizedBy              String?
+  isFrozen                 Boolean          @default(false)
+  frozenAt                 DateTime?
+  frozenBy                 String?
+  metadata                 Json?
+  createdAt                DateTime         @default(now())
+  updatedAt                DateTime         @updatedAt
+
+  @@unique([studentId, selectionCycleId])
+  @@index([selectionCycleId, status])
+}
+
+model AdminDecision {
+  id               String            @id @default(uuid())
+  studentId        String
+  student          Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  selectionCycleId String
+  selectionCycle   SelectionCycle    @relation(fields: [selectionCycleId], references: [id], onDelete: Cascade)
+  decisionType     AdminDecisionType
+  reason           String
+  actor            String
+  role             String
+  targetDomainId   String?
+  targetBatchId    String?
+  metadata         Json?
+  createdAt        DateTime          @default(now())
+
+  @@index([studentId, selectionCycleId])
+  @@index([createdAt])
+}
+
+model Notification {
+  id                String           @id @default(uuid())
+  recipient         String
+  recipientRole     String?
+  type              NotificationType @default(GENERAL)
+  title             String
+  message           String
+  isRead            Boolean          @default(false)
+  readAt            DateTime?
+  relatedEntityType String?
+  relatedEntityId   String?
+  metadata          Json?
+  createdAt         DateTime         @default(now())
+
+  @@index([recipient, isRead])
+  @@index([createdAt])
+}
+
+// ==========================================
+// MEMBER 3 - INTEGRATION & AI MODELS
+// ==========================================
+
+model RuntimeState {
+  id        String   @id
+  payload   Json
+  updatedAt DateTime @updatedAt
+}
+
+enum IntegrationStatus {
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  DUPLICATE
+}
+
+enum RecommendationStatus {
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  VERIFIED
+}
+
+model IntegrationSource {
+  id         Int              @id @default(autoincrement())
+  code       String           @unique
+  name       String
+  enabled    Boolean          @default(true)
+  lastSeenAt DateTime?
+  jobs       IntegrationJob[]
+}
+
+model IntegrationJob {
+  id             String            @id @default(uuid())
+  sourceId       Int
+  source         IntegrationSource @relation(fields: [sourceId], references: [id])
+  operation      String
+  method         String
+  idempotencyKey String            @unique
+  status         IntegrationStatus @default(PROCESSING)
+  recordCount    Int               @default(0)
+  startedAt      DateTime          @default(now())
+  endedAt        DateTime?
+  error          Json?
+  logs           IntegrationLog[]
+}
+
+model IntegrationLog {
+  id        String         @id @default(uuid())
+  jobId     String
+  job       IntegrationJob @relation(fields: [jobId], references: [id])
+  level     String
+  message   String
+  details   Json?
+  createdAt DateTime       @default(now())
+}
+
+model ExternalReference {
+  id         String @id @default(uuid())
+  sourceCode String
+  entityType String
+  externalId String
+  internalId String
+  sourceMeta Json?
+
+  @@unique([sourceCode, entityType, externalId])
+}
+
+model AiStudentAnalysis {
+  id                 String   @id @default(uuid())
+  studentId          String
+  strengths          Json
+  gaps               Json
+  trend              String
+  recommendedDomains Json
+  modelVersion       String
+  advisoryOnly       Boolean  @default(true)
+  generatedAt        DateTime @default(now())
+
+  @@index([studentId, generatedAt])
+}
+
+model AgentRun {
+  id              String                @id @default(uuid())
+  cycleId         Int?
+  state           String
+  context         Json
+  startedAt       DateTime              @default(now())
+  completedAt     DateTime?
+  recommendations AgentRecommendation[]
+}
+
+model AgentRecommendation {
+  id                String               @id @default(uuid())
+  runId             String
+  run               AgentRun             @relation(fields: [runId], references: [id])
+  studentId         String
+  recommendedDomain String
+  rationale         Json
+  conflicts         Json
+  status            RecommendationStatus @default(PENDING_APPROVAL)
+  approvedBy        String?
+  approvedAt        DateTime?
+  verifiedAt        DateTime?
+}
+
+model ReportSnapshot {
+  id          String   @id @default(uuid())
+  reportType  String
+  cycleId     Int?
+  filters     Json?
+  totals      Json
+  storagePath String?
+  createdAt   DateTime @default(now())
+}

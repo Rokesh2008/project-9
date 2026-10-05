@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  repository-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Validate repository structure
+        shell: bash
+        run: |
+          test -f README.md
+          test -f CONTRIBUTING.md
+          test -f PROJECT_9_MASTER_ARCHITECTURE.md
+          test -f .env.example
+          test -f docker-compose.yml
+          test -d apps
+          test -d packages
+          test -d prisma
+          test -d docs
+          test -d docker

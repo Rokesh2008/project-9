@@ -1,0 +1,1432 @@
+{
+  "students": [
+    [
+      "S-001",
+      {
+        "studentId": "S-001",
+        "registerNumber": "REG2026001",
+        "name": "Aarav Kumar",
+        "department": "CSE",
+        "email": "aarav.kumar@example.edu",
+        "cgpa": 8.7,
+        "codingScore": 88,
+        "aptitudeScore": 81,
+        "attendancePercent": 93,
+        "dsaLevel": "ADVANCED",
+        "preferences": [
+          "PEPC-01 AI/ML",
+          "PEPC-05 Data Science"
+        ],
+        "completedCertificates": [
+          "Data Science Foundation"
+        ],
+        "program": "PEP",
+        "interviewEligible": true,
+        "selected": true,
+        "sourceUpdatedAt": "2026-09-24T09:00:00.000Z"
+      }
+    ],
+    [
+      "S-002",
+      {
+        "studentId": "S-002",
+        "registerNumber": "REG2026002",
+        "name": "Diya Sharma",
+        "department": "IT",
+        "email": "diya.sharma@example.edu",
+        "cgpa": 8.2,
+        "codingScore": 76,
+        "aptitudeScore": 84,
+        "attendancePercent": 89,
+        "dsaLevel": "INTERMEDIATE",
+        "preferences": [
+          "PEPC-06 Full Stack MERN",
+          "PEPC-08 Mobile Development"
+        ],
+        "completedCertificates": [
+          "HTML5"
+        ],
+        "program": "PEP",
+        "interviewEligible": true,
+        "selected": true,
+        "sourceUpdatedAt": "2026-09-24T09:00:00.000Z"
+      }
+    ],
+    [
+      "S-003",
+      {
+        "studentId": "S-003",
+        "registerNumber": "REG2026003",
+        "name": "Rohan Patel",
+        "department": "ECE",
+        "email": "rohan.patel@example.edu",
+        "cgpa": 7.9,
+        "codingScore": 72,
+        "aptitudeScore": 69,
+        "attendancePercent": 86,
+        "dsaLevel": "INTERMEDIATE",
+        "preferences": [
+          "PEPC-15 Embedded & IoT",
+          "PEPC-16 Robotics"
+        ],
+        "completedCertificates": [
+          "Fundamentals of TinyML"
+        ],
+        "program": "HOPE",
+        "interviewEligible": true,
+        "selected": false,
+        "sourceUpdatedAt": "2026-09-24T09:00:00.000Z"
+      }
+    ],
+    [
+      "S-004",
+      {
+        "studentId": "S-004",
+        "registerNumber": "REG2026004",
+        "name": "Meera Nair",
+        "department": "CSE",
+        "email": "meera.nair@example.edu",
+        "cgpa": 9.1,
+        "codingScore": 92,
+        "aptitudeScore": 87,
+        "attendancePercent": 96,
+        "dsaLevel": "ADVANCED",
+        "preferences": [
+          "PEPC-05 Data Science",
+          "PEPC-01 AI/ML"
+        ],
+        "completedCertificates": [
+          "Applied Data Science with Python"
+        ],
+        "program": "PEP",
+        "interviewEligible": true,
+        "selected": true,
+        "sourceUpdatedAt": "2026-09-24T09:00:00.000Z"
+      }
+    ],
+    [
+      "S-005",
+      {
+        "studentId": "S-005",
+        "registerNumber": "REG2026005",
+        "name": "Arjun Singh",
+        "department": "EEE",
+        "email": "arjun.singh@example.edu",
+        "cgpa": 7.4,
+        "codingScore": 64,
+        "aptitudeScore": 71,
+        "attendancePercent": 78,
+        "dsaLevel": "BEGINNER",
+        "preferences": [
+          "PEPC-14 EV Technology",
+          "PEPC-13 CAD & 3D Printing"
+        ],
+        "completedCertificates": [
+          "Introduction to Electric Vehicles"
+        ],
+        "program": "UNASSIGNED",
+        "interviewEligible": false,
+        "selected": false,
+        "sourceUpdatedAt": "2026-09-24T09:00:00.000Z"
+      }
+    ],
+    [
+      "S-006",
+      {
+        "studentId": "S-006",
+        "registerNumber": "REG2026006",
+        "name": "Kavya Iyer",
+        "department": "IT",
+        "email": "kavya.iyer@example.edu",
+        "cgpa": 8.5,
+        "codingScore": 83,
+        "aptitudeScore": 79,
+        "attendancePercent": 91,
+        "dsaLevel": "ADVANCED",
+        "preferences": [
+          "PEPC-10 RPA & Agentic AI",
+          "PEPC-06 Full Stack MERN"
+        ],
+        "completedCertificates": [
+          "Introduction to Robotic Process Automation"
+        ],
+        "program": "PEP",
+        "interviewEligible": true,
+        "selected": true,
+        "sourceUpdatedAt": "2026-09-24T09:00:00.000Z"
+      }
+    ],
+    [
+      "S-007",
+      {
+        "studentId": "S-007",
+        "registerNumber": "REG2026007",
+        "name": "Vikram Rao",
+        "department": "ECE",
+        "email": "vikram.rao@example.edu",
+        "cgpa": 8,
+        "codingScore": 74,
+        "aptitudeScore": 77,
+        "attendancePercent": 84,
+        "dsaLevel": "INTERMEDIATE",
+        "preferences": [
+          "PEPC-02 CCNA",
+          "PEPC-12 5G/6G"
+        ],
+        "completedCertificates": [
+          "Networking Basics"
+        ],
+        "program": "HOPE",
+        "interviewEligible": true,
+        "selected": false,
+        "sourceUpdatedAt": "2026-09-24T09:00:00.000Z"
+      }
+    ],
+    [
+      "S-008",
+      {
+        "studentId": "S-008",
+        "registerNumber": "REG2026008",
+        "name": "Ananya Das",
+        "department": "CSE",
+        "email": "ananya.das@example.edu",
+        "cgpa": 8.9,
+        "codingScore": 90,
+        "aptitudeScore": 85,
+        "attendancePercent": 94,
+        "dsaLevel": "ADVANCED",
+        "preferences": [
+          "PEPC-04 Cybersecurity",
+          "PEPC-01 AI/ML"
+        ],
+        "completedCertificates": [
+          "Cybersecurity Essentials"
+        ],
+        "program": "PEP",
+        "interviewEligible": true,
+        "selected": true,
+        "sourceUpdatedAt": "2026-09-24T09:00:00.000Z"
+      }
+    ]
+  ],
+  "communicationResults": [
+    [
+      "DEMO-P1-S-001",
+      {
+        "resultId": "DEMO-P1-S-001",
+        "studentId": "S-001",
+        "score": 86,
+        "level": "ADVANCED",
+        "assessedAt": "2026-09-30T08:28:41.753Z"
+      }
+    ],
+    [
+      "DEMO-P1-S-002",
+      {
+        "resultId": "DEMO-P1-S-002",
+        "studentId": "S-002",
+        "score": 86,
+        "level": "ADVANCED",
+        "assessedAt": "2026-09-30T08:28:41.753Z"
+      }
+    ],
+    [
+      "DEMO-P1-S-003",
+      {
+        "resultId": "DEMO-P1-S-003",
+        "studentId": "S-003",
+        "score": 77,
+        "level": "INTERMEDIATE",
+        "assessedAt": "2026-09-30T08:28:41.753Z"
+      }
+    ],
+    [
+      "DEMO-P1-S-004",
+      {
+        "resultId": "DEMO-P1-S-004",
+        "studentId": "S-004",
+        "score": 91,
+        "level": "ADVANCED",
+        "assessedAt": "2026-09-30T08:28:41.753Z"
+      }
+    ],
+    [
+      "DEMO-P1-S-006",
+      {
+        "resultId": "DEMO-P1-S-006",
+        "studentId": "S-006",
+        "score": 84,
+        "level": "ADVANCED",
+        "assessedAt": "2026-09-30T08:28:41.753Z"
+      }
+    ],
+    [
+      "DEMO-P1-S-007",
+      {
+        "resultId": "DEMO-P1-S-007",
+        "studentId": "S-007",
+        "score": 80,
+        "level": "ADVANCED",
+        "assessedAt": "2026-09-30T08:28:41.753Z"
+      }
+    ],
+    [
+      "DEMO-P1-S-008",
+      {
+        "resultId": "DEMO-P1-S-008",
+        "studentId": "S-008",
+        "score": 89,
+        "level": "ADVANCED",
+        "assessedAt": "2026-09-30T08:28:41.753Z"
+      }
+    ]
+  ],
+  "interviewResults": [
+    [
+      "DEMO-P8-S-001-1",
+      {
+        "attemptId": "DEMO-P8-S-001-1",
+        "studentId": "S-001",
+        "score": 87,
+        "outcome": "PASS",
+        "interviewedAt": "2026-09-30T08:28:41.754Z",
+        "notes": "Dependency simulator result"
+      }
+    ],
+    [
+      "DEMO-P8-S-002-1",
+      {
+        "attemptId": "DEMO-P8-S-002-1",
+        "studentId": "S-002",
+        "score": 81,
+        "outcome": "PASS",
+        "interviewedAt": "2026-09-30T08:28:41.754Z",
+        "notes": "Dependency simulator result"
+      }
+    ],
+    [
+      "DEMO-P8-S-003-1",
+      {
+        "attemptId": "DEMO-P8-S-003-1",
+        "studentId": "S-003",
+        "score": 75,
+        "outcome": "WAITLIST",
+        "interviewedAt": "2026-09-30T08:28:41.754Z",
+        "notes": "Dependency simulator result"
+      }
+    ],
+    [
+      "DEMO-P8-S-004-1",
+      {
+        "attemptId": "DEMO-P8-S-004-1",
+        "studentId": "S-004",
+        "score": 92,
+        "outcome": "PASS",
+        "interviewedAt": "2026-09-30T08:28:41.754Z",
+        "notes": "Dependency simulator result"
+      }
+    ],
+    [
+      "DEMO-P8-S-006-1",
+      {
+        "attemptId": "DEMO-P8-S-006-1",
+        "studentId": "S-006",
+        "score": 84,
+        "outcome": "PASS",
+        "interviewedAt": "2026-09-30T08:28:41.754Z",
+        "notes": "Dependency simulator result"
+      }
+    ],
+    [
+      "DEMO-P8-S-007-1",
+      {
+        "attemptId": "DEMO-P8-S-007-1",
+        "studentId": "S-007",
+        "score": 77,
+        "outcome": "WAITLIST",
+        "interviewedAt": "2026-09-30T08:28:41.754Z",
+        "notes": "Dependency simulator result"
+      }
+    ],
+    [
+      "DEMO-P8-S-008-1",
+      {
+        "attemptId": "DEMO-P8-S-008-1",
+        "studentId": "S-008",
+        "score": 90,
+        "outcome": "PASS",
+        "interviewedAt": "2026-09-30T08:28:41.754Z",
+        "notes": "Dependency simulator result"
+      }
+    ]
+  ],
+  "idempotency": [],
+  "logs": [
+    {
+      "id": "a05577a1-7e3b-4bcd-a556-557f20a34608",
+      "source": "PROJECT_2",
+      "operation": "students.demo-bootstrap",
+      "method": "API",
+      "status": "SUCCEEDED",
+      "recordCount": 8,
+      "startedAt": "2026-09-30T08:28:41.751Z",
+      "endedAt": "2026-09-30T08:28:41.751Z",
+      "requestId": "demo-bbcc1aa7-3618-499c-8399-deabd2e03e53"
+    },
+    {
+      "id": "5228656b-044d-4d98-8833-5b9d5eb5cd10",
+      "source": "PROJECT_1",
+      "operation": "communication-results.demo",
+      "method": "API",
+      "status": "SUCCEEDED",
+      "recordCount": 7,
+      "startedAt": "2026-09-30T08:28:41.753Z",
+      "endedAt": "2026-09-30T08:28:41.753Z",
+      "requestId": "demo-4d673810-fb78-40f2-b4ec-f412175f8535"
+    },
+    {
+      "id": "1c64249b-a979-4e29-97e4-10aab54b518b",
+      "source": "PROJECT_8",
+      "operation": "interview-results.demo",
+      "method": "API",
+      "status": "SUCCEEDED",
+      "recordCount": 7,
+      "startedAt": "2026-09-30T08:28:41.754Z",
+      "endedAt": "2026-09-30T08:28:41.754Z",
+      "requestId": "demo-3390e363-1869-4617-b0f3-0723f5042885"
+    },
+    {
+      "id": "c46d7be9-70ad-47ba-9cdd-61a58cf2f89b",
+      "source": "PROJECT_2",
+      "operation": "students.demo-bootstrap",
+      "method": "API",
+      "status": "DUPLICATE",
+      "recordCount": 0,
+      "startedAt": "2026-09-30T08:28:42.937Z",
+      "endedAt": "2026-09-30T08:28:42.937Z",
+      "requestId": "demo-9a1ef743-385b-4471-a270-b58958f98314"
+    },
+    {
+      "id": "d87ce053-4602-4d62-9ae7-4ede0d4c7dd9",
+      "source": "PROJECT_1",
+      "operation": "communication-results.demo",
+      "method": "API",
+      "status": "DUPLICATE",
+      "recordCount": 0,
+      "startedAt": "2026-09-30T08:28:42.938Z",
+      "endedAt": "2026-09-30T08:28:42.938Z",
+      "requestId": "demo-674b6e05-2474-448b-8f7a-4fde2166839a"
+    },
+    {
+      "id": "031c2c31-2136-45a5-bba1-54309c7b4c0d",
+      "source": "PROJECT_8",
+      "operation": "interview-results.demo",
+      "method": "API",
+      "status": "DUPLICATE",
+      "recordCount": 0,
+      "startedAt": "2026-09-30T08:28:42.939Z",
+      "endedAt": "2026-09-30T08:28:42.939Z",
+      "requestId": "demo-a35cf450-0b57-4816-aea3-272173f7aacf"
+    },
+    {
+      "id": "5c6d97e0-11f8-447e-9f9b-4d9369b751b1",
+      "source": "PROJECT_2",
+      "operation": "students.demo-bootstrap",
+      "method": "API",
+      "status": "DUPLICATE",
+      "recordCount": 0,
+      "startedAt": "2026-09-30T08:29:06.852Z",
+      "endedAt": "2026-09-30T08:29:06.852Z",
+      "requestId": "demo-08eaa93d-1aa5-41c3-a3df-146848cf6ef2"
+    },
+    {
+      "id": "117b5979-851d-4ac1-9fbe-1f63e977fcd6",
+      "source": "PROJECT_2",
+      "operation": "students.demo-bootstrap",
+      "method": "API",
+      "status": "DUPLICATE",
+      "recordCount": 0,
+      "startedAt": "2026-09-30T08:30:14.773Z",
+      "endedAt": "2026-09-30T08:30:14.773Z",
+      "requestId": "demo-806d9316-2366-46b1-ba46-8679d359f40a"
+    },
+    {
+      "id": "9d8d930c-5f46-4ac6-8ff8-68e215ec5067",
+      "source": "PROJECT_1",
+      "operation": "communication-results.demo",
+      "method": "API",
+      "status": "DUPLICATE",
+      "recordCount": 0,
+      "startedAt": "2026-09-30T08:30:14.775Z",
+      "endedAt": "2026-09-30T08:30:14.775Z",
+      "requestId": "demo-8628a0d8-3e44-4377-9e1a-bcdb5c19e524"
+    },
+    {
+      "id": "3e13a360-ca44-4deb-8bbf-c0d21aac5bab",
+      "source": "PROJECT_8",
+      "operation": "interview-results.demo",
+      "method": "API",
+      "status": "DUPLICATE",
+      "recordCount": 0,
+      "startedAt": "2026-09-30T08:30:14.775Z",
+      "endedAt": "2026-09-30T08:30:14.775Z",
+      "requestId": "demo-cbe06e8a-2795-49b5-9347-b75ec007163f"
+    },
+    {
+      "id": "d343ea44-1353-482e-831a-6f75fc0636d6",
+      "source": "PROJECT_2",
+      "operation": "students.demo-bootstrap",
+      "method": "API",
+      "status": "DUPLICATE",
+      "recordCount": 0,
+      "startedAt": "2026-10-01T02:56:46.641Z",
+      "endedAt": "2026-10-01T02:56:46.641Z",
+      "requestId": "demo-f792e755-a7f0-40cb-ba51-52002e133bb6"
+    },
+    {
+      "id": "d006b7c8-fcce-408c-a659-a73d0f8645ea",
+      "source": "PROJECT_1",
+      "operation": "communication-results.demo",
+      "method": "API",
+      "status": "DUPLICATE",
+      "recordCount": 0,
+      "startedAt": "2026-10-01T02:56:46.647Z",
+      "endedAt": "2026-10-01T02:56:46.647Z",
+      "requestId": "demo-87aa1abf-6526-488c-be92-435b9ab7020b"
+    },
+    {
+      "id": "2d0b99b9-4cd5-4d3c-bf23-b35b3ed5ad6d",
+      "source": "PROJECT_8",
+      "operation": "interview-results.demo",
+      "method": "API",
+      "status": "DUPLICATE",
+      "recordCount": 0,
+      "startedAt": "2026-10-01T02:56:46.649Z",
+      "endedAt": "2026-10-01T02:56:46.649Z",
+      "requestId": "demo-6e1eb22f-1c75-4d8c-b710-85298d083df2"
+    },
+    {
+      "id": "951f28d2-ba5e-4857-b856-2e6b1b0e0160",
+      "source": "PROJECT_2",
+      "operation": "students.demo-bootstrap",
+      "method": "API",
+      "status": "DUPLICATE",
+      "recordCount": 0,
+      "startedAt": "2026-10-01T02:56:47.654Z",
+      "endedAt": "2026-10-01T02:56:47.654Z",
+      "requestId": "demo-ab159458-2f05-4071-8cec-f6c55ce10f4f"
+    },
+    {
+      "id": "8a680e34-854e-4163-a6ff-f6fad97e371a",
+      "source": "PROJECT_1",
+      "operation": "communication-results.demo",
+      "method": "API",
+      "status": "DUPLICATE",
+      "recordCount": 0,
+      "startedAt": "2026-10-01T02:56:47.657Z",
+      "endedAt": "2026-10-01T02:56:47.657Z",
+      "requestId": "demo-ac60b65c-4f46-4cfd-be5b-903cc6c48091"
+    },
+    {
+      "id": "4152e5be-702f-408e-8083-5e064d8a3461",
+      "source": "PROJECT_8",
+      "operation": "interview-results.demo",
+      "method": "API",
+      "status": "DUPLICATE",
+      "recordCount": 0,
+      "startedAt": "2026-10-01T02:56:47.660Z",
+      "endedAt": "2026-10-01T02:56:47.660Z",
+      "requestId": "demo-af5f6960-8a70-4c3c-a34a-af8a7e6cf162"
+    },
+    {
+      "id": "e6eed257-c0e0-467d-89c6-c1dd17ef99f6",
+      "source": "PROJECT_2",
+      "operation": "students.demo-bootstrap",
+      "method": "API",
+      "status": "DUPLICATE",
+      "recordCount": 0,
+      "startedAt": "2026-10-01T02:56:48.337Z",
+      "endedAt": "2026-10-01T02:56:48.337Z",
+      "requestId": "demo-1282d229-9d0f-4d5c-9afd-812e2ddd1b86"
+    },
+    {
+      "id": "e00306a0-1de9-4dcd-8e25-e187fe7bd2b9",
+      "source": "PROJECT_1",
+      "operation": "communication-results.demo",
+      "method": "API",
+      "status": "DUPLICATE",
+      "recordCount": 0,
+      "startedAt": "2026-10-01T02:56:48.341Z",
+      "endedAt": "2026-10-01T02:56:48.341Z",
+      "requestId": "demo-89f28652-ab68-4675-b94a-fb4556370413"
+    },
+    {
+      "id": "2ddc807a-3be9-4893-af2e-546751110bb3",
+      "source": "PROJECT_8",
+      "operation": "interview-results.demo",
+      "method": "API",
+      "status": "DUPLICATE",
+      "recordCount": 0,
+      "startedAt": "2026-10-01T02:56:48.343Z",
+      "endedAt": "2026-10-01T02:56:48.343Z",
+      "requestId": "demo-f4d1144f-7212-4f26-8636-652a55a1af95"
+    },
+    {
+      "id": "9b98776c-1037-48a4-b9e1-3f5f500a6ed7",
+      "source": "PROJECT_2",
+      "operation": "students.demo-bootstrap",
+      "method": "API",
+      "status": "DUPLICATE",
+      "recordCount": 0,
+      "startedAt": "2026-10-01T02:56:48.993Z",
+      "endedAt": "2026-10-01T02:56:48.993Z",
+      "requestId": "demo-796c130f-b632-427a-889b-a41a59b47e87"
+    },
+    {
+      "id": "d89fd11c-f67a-4a76-a43e-4ea010975dc9",
+      "source": "PROJECT_1",
+      "operation": "communication-results.demo",
+      "method": "API",
+      "status": "DUPLICATE",
+      "recordCount": 0,
+      "startedAt": "2026-10-01T02:56:48.998Z",
+      "endedAt": "2026-10-01T02:56:48.998Z",
+      "requestId": "demo-0421e39f-c408-4d4d-bf75-c6202c4e16ab"
+    },
+    {
+      "id": "32d7cb85-0153-4cf9-b9e1-d352db9f95ad",
+      "source": "PROJECT_8",
+      "operation": "interview-results.demo",
+      "method": "API",
+      "status": "DUPLICATE",
+      "recordCount": 0,
+      "startedAt": "2026-10-01T02:56:49.000Z",
+      "endedAt": "2026-10-01T02:56:49.000Z",
+      "requestId": "demo-0eb6704b-240d-418c-8a83-0950b02abbf5"
+    },
+    {
+      "id": "5054597b-f879-4bac-9000-cc69fbf1dbd0",
+      "source": "PROJECT_2",
+      "operation": "students.demo-bootstrap",
+      "method": "API",
+      "status": "DUPLICATE",
+      "recordCount": 0,
+      "startedAt": "2026-10-01T02:56:49.645Z",
+      "endedAt": "2026-10-01T02:56:49.645Z",
+      "requestId": "demo-193fe3c3-d290-46c9-a584-d7e566cad8c4"
+    },
+    {
+      "id": "b69e93e0-c4f4-42cf-964e-049d025ee361",
+      "source": "PROJECT_1",
+      "operation": "communication-results.demo",
+      "method": "API",
+      "status": "DUPLICATE",
+      "recordCount": 0,
+      "startedAt": "2026-10-01T02:56:49.648Z",
+      "endedAt": "2026-10-01T02:56:49.648Z",
+      "requestId": "demo-64d5cf81-3f19-42d2-ae44-923110e21b65"
+    },
+    {
+      "id": "080bb6d5-2226-4357-840f-778b21884306",
+      "source": "PROJECT_8",
+      "operation": "interview-results.demo",
+      "method": "API",
+      "status": "DUPLICATE",
+      "recordCount": 0,
+      "startedAt": "2026-10-01T02:56:49.650Z",
+      "endedAt": "2026-10-01T02:56:49.650Z",
+      "requestId": "demo-b99c6b15-f281-4fba-8a40-6c6705d3d045"
+    },
+    {
+      "id": "5f3c5858-a46e-41f0-af41-92155b34e518",
+      "source": "PROJECT_2",
+      "operation": "students.demo-bootstrap",
+      "method": "API",
+      "status": "DUPLICATE",
+      "recordCount": 0,
+      "startedAt": "2026-10-01T02:56:50.173Z",
+      "endedAt": "2026-10-01T02:56:50.173Z",
+      "requestId": "demo-d068b076-05b5-44ae-a77b-5fd44c77efe0"
+    },
+    {
+      "id": "a987f4cd-ba0e-4e96-922d-c6d65a866c80",
+      "source": "PROJECT_1",
+      "operation": "communication-results.demo",
+      "method": "API",
+      "status": "DUPLICATE",
+      "recordCount": 0,
+      "startedAt": "2026-10-01T02:56:50.177Z",
+      "endedAt": "2026-10-01T02:56:50.177Z",
+      "requestId": "demo-965ee7b0-1180-4bc3-b2ad-2724021cd3e5"
+    },
+    {
+      "id": "019adc85-b92b-446f-b0a3-2de3e561c73a",
+      "source": "PROJECT_8",
+      "operation": "interview-results.demo",
+      "method": "API",
+      "status": "DUPLICATE",
+      "recordCount": 0,
+      "startedAt": "2026-10-01T02:56:50.179Z",
+      "endedAt": "2026-10-01T02:56:50.179Z",
+      "requestId": "demo-c563a910-5077-4292-a8c8-1a7d9d76ba60"
+    }
+  ],
+  "analyses": [
+    [
+      "S-001",
+      {
+        "strengths": [
+          "Strong coding performance",
+          "Strong analytical aptitude",
+          "Consistent academic performance"
+        ],
+        "gaps": [],
+        "trend": "STRONG",
+        "recommendedDomains": [
+          {
+            "domain": "PEPC-01 AI/ML",
+            "score": 86,
+            "reason": "Matches first preference and the supplied performance profile"
+          },
+          {
+            "domain": "PEPC-05 Data Science",
+            "score": 82,
+            "reason": "Alternative preference supported by the supplied skills"
+          }
+        ],
+        "advisoryOnly": true,
+        "studentId": "S-001",
+        "generatedAt": "2026-10-01T02:56:56.742Z"
+      }
+    ],
+    [
+      "S-002",
+      {
+        "studentId": "S-002",
+        "strengths": [
+          "Strong coding score",
+          "Strong aptitude",
+          "Consistent academic performance"
+        ],
+        "gaps": [],
+        "trend": "STRONG",
+        "recommendedDomains": [
+          {
+            "domain": "PEPC-06 Full Stack MERN",
+            "score": 80,
+            "reason": "Matches the student first preference and current performance profile"
+          },
+          {
+            "domain": "PEPC-08 Mobile Development",
+            "score": 76,
+            "reason": "Alternative preference with available program capacity"
+          }
+        ],
+        "generatedAt": "2026-09-30T08:29:32.677Z",
+        "advisoryOnly": true
+      }
+    ],
+    [
+      "S-003",
+      {
+        "studentId": "S-003",
+        "strengths": [],
+        "gaps": [
+          "Improve coding fundamentals",
+          "Practice quantitative aptitude"
+        ],
+        "trend": "AT_RISK",
+        "recommendedDomains": [
+          {
+            "domain": "PEPC-15 Embedded & IoT",
+            "score": 73,
+            "reason": "Matches the student first preference and current performance profile"
+          },
+          {
+            "domain": "PEPC-16 Robotics",
+            "score": 69,
+            "reason": "Alternative preference with available program capacity"
+          }
+        ],
+        "generatedAt": "2026-09-30T08:29:34.320Z",
+        "advisoryOnly": true
+      }
+    ],
+    [
+      "S-004",
+      {
+        "studentId": "S-004",
+        "strengths": [
+          "Strong coding score",
+          "Strong aptitude",
+          "Consistent academic performance"
+        ],
+        "gaps": [],
+        "trend": "STRONG",
+        "recommendedDomains": [
+          {
+            "domain": "PEPC-05 Data Science",
+            "score": 90,
+            "reason": "Matches the student first preference and current performance profile"
+          },
+          {
+            "domain": "PEPC-01 AI/ML",
+            "score": 86,
+            "reason": "Alternative preference with available program capacity"
+          }
+        ],
+        "generatedAt": "2026-09-30T08:29:45.739Z",
+        "advisoryOnly": true
+      }
+    ],
+    [
+      "S-005",
+      {
+        "strengths": [
+          "Strong analytical aptitude"
+        ],
+        "gaps": [
+          "Improve coding and DSA consistency"
+        ],
+        "trend": "STABLE",
+        "recommendedDomains": [
+          {
+            "domain": "PEPC-14 EV Technology",
+            "score": 69,
+            "reason": "Matches first preference and the supplied performance profile"
+          },
+          {
+            "domain": "PEPC-13 CAD & 3D Printing",
+            "score": 65,
+            "reason": "Alternative preference supported by the supplied skills"
+          }
+        ],
+        "advisoryOnly": true,
+        "studentId": "S-005",
+        "generatedAt": "2026-10-01T02:24:46.017Z"
+      }
+    ],
+    [
+      "S-006",
+      {
+        "studentId": "S-006",
+        "strengths": [
+          "Strong coding score",
+          "Strong aptitude",
+          "Consistent academic performance"
+        ],
+        "gaps": [],
+        "trend": "STRONG",
+        "recommendedDomains": [
+          {
+            "domain": "PEPC-10 RPA & Agentic AI",
+            "score": 83,
+            "reason": "Matches the student first preference and current performance profile"
+          },
+          {
+            "domain": "PEPC-06 Full Stack MERN",
+            "score": 79,
+            "reason": "Alternative preference with available program capacity"
+          }
+        ],
+        "generatedAt": "2026-09-30T08:29:41.022Z",
+        "advisoryOnly": true
+      }
+    ],
+    [
+      "S-007",
+      {
+        "studentId": "S-007",
+        "strengths": [
+          "Strong aptitude",
+          "Consistent academic performance"
+        ],
+        "gaps": [
+          "Improve coding fundamentals"
+        ],
+        "trend": "STABLE",
+        "recommendedDomains": [
+          {
+            "domain": "PEPC-02 CCNA",
+            "score": 77,
+            "reason": "Matches the student first preference and current performance profile"
+          },
+          {
+            "domain": "PEPC-12 5G/6G",
+            "score": 73,
+            "reason": "Alternative preference with available program capacity"
+          }
+        ],
+        "generatedAt": "2026-09-30T08:29:47.594Z",
+        "advisoryOnly": true
+      }
+    ],
+    [
+      "S-008",
+      {
+        "studentId": "S-008",
+        "strengths": [
+          "Strong coding score",
+          "Strong aptitude",
+          "Consistent academic performance"
+        ],
+        "gaps": [],
+        "trend": "STRONG",
+        "recommendedDomains": [
+          {
+            "domain": "PEPC-04 Cybersecurity",
+            "score": 88,
+            "reason": "Matches the student first preference and current performance profile"
+          },
+          {
+            "domain": "PEPC-01 AI/ML",
+            "score": 84,
+            "reason": "Alternative preference with available program capacity"
+          }
+        ],
+        "generatedAt": "2026-09-30T08:29:50.932Z",
+        "advisoryOnly": true
+      }
+    ]
+  ],
+  "recommendations": [
+    [
+      "754cec27-9a97-4836-8ffb-6864884f821f",
+      {
+        "id": "754cec27-9a97-4836-8ffb-6864884f821f",
+        "studentId": "S-001",
+        "recommendedDomain": "PEPC-01 AI/ML",
+        "rationale": [
+          "Matches first preference and the supplied performance profile",
+          "Capacity 0/70"
+        ],
+        "conflicts": [],
+        "status": "PENDING_APPROVAL"
+      }
+    ],
+    [
+      "41e56089-a0fa-4822-8457-f78665198c94",
+      {
+        "id": "41e56089-a0fa-4822-8457-f78665198c94",
+        "studentId": "S-002",
+        "recommendedDomain": "PEPC-06 Full Stack MERN",
+        "rationale": [
+          "Matches the student first preference and current performance profile",
+          "Capacity 0/70"
+        ],
+        "conflicts": [],
+        "status": "PENDING_APPROVAL"
+      }
+    ],
+    [
+      "ad9c1792-55f6-4e05-aca9-060fe3ffbed0",
+      {
+        "id": "ad9c1792-55f6-4e05-aca9-060fe3ffbed0",
+        "studentId": "S-003",
+        "recommendedDomain": "PEPC-15 Embedded & IoT",
+        "rationale": [
+          "Matches the student first preference and current performance profile",
+          "Capacity 0/100"
+        ],
+        "conflicts": [],
+        "status": "PENDING_APPROVAL"
+      }
+    ],
+    [
+      "c0098960-1a41-4901-ba16-d7ae68716c10",
+      {
+        "id": "c0098960-1a41-4901-ba16-d7ae68716c10",
+        "studentId": "S-004",
+        "recommendedDomain": "PEPC-05 Data Science",
+        "rationale": [
+          "Matches the student first preference and current performance profile",
+          "Capacity 0/70"
+        ],
+        "conflicts": [],
+        "status": "REJECTED",
+        "approvedBy": "demo-admin",
+        "approvedAt": "2026-10-01T02:25:06.868Z"
+      }
+    ],
+    [
+      "90500e43-1575-4738-86cb-a8d578bbcf25",
+      {
+        "id": "90500e43-1575-4738-86cb-a8d578bbcf25",
+        "studentId": "S-006",
+        "recommendedDomain": "PEPC-10 RPA & Agentic AI",
+        "rationale": [
+          "Matches the student first preference and current performance profile",
+          "Capacity 0/60"
+        ],
+        "conflicts": [],
+        "status": "PENDING_APPROVAL"
+      }
+    ],
+    [
+      "8d4d1de2-6596-4392-ba42-086757fd4e6b",
+      {
+        "id": "8d4d1de2-6596-4392-ba42-086757fd4e6b",
+        "studentId": "S-007",
+        "recommendedDomain": "PEPC-02 CCNA",
+        "rationale": [
+          "Matches the student first preference and current performance profile",
+          "Capacity 0/60"
+        ],
+        "conflicts": [],
+        "status": "VERIFIED",
+        "approvedBy": "demo-admin",
+        "approvedAt": "2026-10-01T02:56:27.850Z",
+        "verifiedAt": "2026-10-01T02:56:27.850Z"
+      }
+    ],
+    [
+      "92063e79-82f8-478f-b1f0-bb4aaef4d0eb",
+      {
+        "id": "92063e79-82f8-478f-b1f0-bb4aaef4d0eb",
+        "studentId": "S-008",
+        "recommendedDomain": "PEPC-04 Cybersecurity",
+        "rationale": [
+          "Matches the student first preference and current performance profile",
+          "Capacity 0/70"
+        ],
+        "conflicts": [],
+        "status": "PENDING_APPROVAL"
+      }
+    ],
+    [
+      "0dc32c54-6577-4d88-92e3-021008c704a3",
+      {
+        "id": "0dc32c54-6577-4d88-92e3-021008c704a3",
+        "studentId": "S-004",
+        "recommendedDomain": "PEPC-05 Data Science",
+        "rationale": [
+          "Matches the student first preference and current performance profile",
+          "Capacity 0/70"
+        ],
+        "conflicts": [],
+        "status": "PENDING_APPROVAL"
+      }
+    ]
+  ],
+  "allocations": [
+    [
+      "S-007",
+      "PEPC-02 CCNA"
+    ]
+  ],
+  "auditEvents": [
+    {
+      "type": "DEMO_PROJECT2_BOOTSTRAP",
+      "actorId": "dependency-simulator",
+      "entityId": "5573c1c8-e743-4830-b88f-56159abb13d5",
+      "details": {
+        "inserted": 8
+      },
+      "at": "2026-09-30T08:28:41.751Z"
+    },
+    {
+      "type": "DEMO_ELIGIBILITY_EVALUATED",
+      "actorId": "dependency-simulator",
+      "entityId": "f691e4d4-f9b4-4b60-8503-9c8ffd3d2309",
+      "details": {
+        "eligible": 7,
+        "failed": 1
+      },
+      "at": "2026-09-30T08:28:41.752Z"
+    },
+    {
+      "type": "DEMO_PROJECT1_COMPLETED",
+      "actorId": "dependency-simulator",
+      "entityId": "1141d276-2245-4da7-a835-5c94566c366f",
+      "details": {
+        "inserted": 7
+      },
+      "at": "2026-09-30T08:28:41.753Z"
+    },
+    {
+      "type": "DEMO_PROJECT8_COMPLETED",
+      "actorId": "dependency-simulator",
+      "entityId": "574a515f-ef9a-4dc1-9782-15755e626d58",
+      "details": {
+        "inserted": 7,
+        "selected": 5
+      },
+      "at": "2026-09-30T08:28:41.754Z"
+    },
+    {
+      "type": "DEMO_PROJECT2_BOOTSTRAP",
+      "actorId": "dependency-simulator",
+      "entityId": "b506ac16-12c7-4f37-92f0-1a4286f228b0",
+      "details": {
+        "inserted": 0
+      },
+      "at": "2026-09-30T08:28:42.937Z"
+    },
+    {
+      "type": "DEMO_ELIGIBILITY_EVALUATED",
+      "actorId": "dependency-simulator",
+      "entityId": "1f3a8cfa-62a5-4253-af42-85b9075cc939",
+      "details": {
+        "eligible": 7,
+        "failed": 1
+      },
+      "at": "2026-09-30T08:28:42.938Z"
+    },
+    {
+      "type": "DEMO_PROJECT1_COMPLETED",
+      "actorId": "dependency-simulator",
+      "entityId": "73a91f72-1512-4b83-8f59-018311884320",
+      "details": {
+        "inserted": 0
+      },
+      "at": "2026-09-30T08:28:42.939Z"
+    },
+    {
+      "type": "DEMO_PROJECT8_COMPLETED",
+      "actorId": "dependency-simulator",
+      "entityId": "4648d010-9b54-4a79-90e3-41db4429cb07",
+      "details": {
+        "inserted": 0,
+        "selected": 5
+      },
+      "at": "2026-09-30T08:28:42.939Z"
+    },
+    {
+      "type": "DEMO_PROJECT2_BOOTSTRAP",
+      "actorId": "dependency-simulator",
+      "entityId": "78562f42-7287-4466-b304-fe7098e8d78f",
+      "details": {
+        "inserted": 0
+      },
+      "at": "2026-09-30T08:29:06.852Z"
+    },
+    {
+      "type": "DEMO_PROJECT2_BOOTSTRAP",
+      "actorId": "dependency-simulator",
+      "entityId": "e0ad2dcb-25b7-48af-8128-8383766d032c",
+      "details": {
+        "inserted": 0
+      },
+      "at": "2026-09-30T08:30:14.773Z"
+    },
+    {
+      "type": "DEMO_ELIGIBILITY_EVALUATED",
+      "actorId": "dependency-simulator",
+      "entityId": "49adcca4-9e88-4b73-9e3f-4fa65d840eba",
+      "details": {
+        "eligible": 7,
+        "failed": 1
+      },
+      "at": "2026-09-30T08:30:14.774Z"
+    },
+    {
+      "type": "DEMO_PROJECT1_COMPLETED",
+      "actorId": "dependency-simulator",
+      "entityId": "f5aec6ad-f9a3-4fc3-b901-a443688fec55",
+      "details": {
+        "inserted": 0
+      },
+      "at": "2026-09-30T08:30:14.775Z"
+    },
+    {
+      "type": "DEMO_PROJECT8_COMPLETED",
+      "actorId": "dependency-simulator",
+      "entityId": "d1ec8265-11b0-41d6-8cf9-9b714c8e4775",
+      "details": {
+        "inserted": 0,
+        "selected": 5
+      },
+      "at": "2026-09-30T08:30:14.775Z"
+    },
+    {
+      "type": "AGENT_RUN_COMPLETED",
+      "actorId": "selection-agent",
+      "entityId": "e0a85050-3166-47f1-93de-89cc415a7a1a",
+      "details": {
+        "eligiblePoolSize": 7,
+        "recommendations": 7
+      },
+      "at": "2026-10-01T02:25:00.201Z"
+    },
+    {
+      "type": "AGENT_RECOMMENDATION_REJECT",
+      "actorId": "demo-admin",
+      "entityId": "c0098960-1a41-4901-ba16-d7ae68716c10",
+      "details": {
+        "studentId": "S-004",
+        "domain": "PEPC-05 Data Science",
+        "finalStatus": "REJECTED"
+      },
+      "at": "2026-10-01T02:25:06.868Z"
+    },
+    {
+      "type": "AGENT_RECOMMENDATION_APPROVE",
+      "actorId": "demo-admin",
+      "entityId": "8d4d1de2-6596-4392-ba42-086757fd4e6b",
+      "details": {
+        "studentId": "S-007",
+        "domain": "PEPC-02 CCNA",
+        "finalStatus": "VERIFIED"
+      },
+      "at": "2026-10-01T02:56:27.851Z"
+    },
+    {
+      "type": "AGENT_RUN_COMPLETED",
+      "actorId": "selection-agent",
+      "entityId": "0b0ce21e-c2ff-42e8-82c4-a2c3bc02e59f",
+      "details": {
+        "eligiblePoolSize": 6,
+        "recommendations": 6
+      },
+      "at": "2026-10-01T02:56:31.347Z"
+    },
+    {
+      "type": "AGENT_RUN_COMPLETED",
+      "actorId": "selection-agent",
+      "entityId": "91cbc3a5-095f-4eeb-800b-7e740a936acf",
+      "details": {
+        "eligiblePoolSize": 6,
+        "recommendations": 6
+      },
+      "at": "2026-10-01T02:56:33.786Z"
+    },
+    {
+      "type": "AGENT_RUN_COMPLETED",
+      "actorId": "selection-agent",
+      "entityId": "45d8938b-9605-4f85-8a93-34a099988c7a",
+      "details": {
+        "eligiblePoolSize": 6,
+        "recommendations": 6
+      },
+      "at": "2026-10-01T02:56:41.605Z"
+    },
+    {
+      "type": "DEMO_PROJECT2_BOOTSTRAP",
+      "actorId": "dependency-simulator",
+      "entityId": "903bcb37-dd46-4195-af69-95fdba0c7287",
+      "details": {
+        "inserted": 0
+      },
+      "at": "2026-10-01T02:56:46.642Z"
+    },
+    {
+      "type": "DEMO_ELIGIBILITY_EVALUATED",
+      "actorId": "dependency-simulator",
+      "entityId": "459d4745-6443-4946-a1dc-2a80f003c9b1",
+      "details": {
+        "eligible": 7,
+        "failed": 1
+      },
+      "at": "2026-10-01T02:56:46.645Z"
+    },
+    {
+      "type": "DEMO_PROJECT1_COMPLETED",
+      "actorId": "dependency-simulator",
+      "entityId": "5cee0598-1e4c-48a7-914b-a705d421cd63",
+      "details": {
+        "inserted": 0
+      },
+      "at": "2026-10-01T02:56:46.647Z"
+    },
+    {
+      "type": "DEMO_PROJECT8_COMPLETED",
+      "actorId": "dependency-simulator",
+      "entityId": "ded93f46-429e-4648-9d7d-7645140d2664",
+      "details": {
+        "inserted": 0,
+        "selected": 5
+      },
+      "at": "2026-10-01T02:56:46.649Z"
+    },
+    {
+      "type": "DEMO_PROJECT2_BOOTSTRAP",
+      "actorId": "dependency-simulator",
+      "entityId": "d9592148-42bc-4bde-9f89-f44064bd3ada",
+      "details": {
+        "inserted": 0
+      },
+      "at": "2026-10-01T02:56:47.654Z"
+    },
+    {
+      "type": "DEMO_ELIGIBILITY_EVALUATED",
+      "actorId": "dependency-simulator",
+      "entityId": "eccdb009-aff8-428b-b812-76b218aa6a84",
+      "details": {
+        "eligible": 7,
+        "failed": 1
+      },
+      "at": "2026-10-01T02:56:47.656Z"
+    },
+    {
+      "type": "DEMO_PROJECT1_COMPLETED",
+      "actorId": "dependency-simulator",
+      "entityId": "6e4d4bfa-3766-4829-9ef1-2835977a1e61",
+      "details": {
+        "inserted": 0
+      },
+      "at": "2026-10-01T02:56:47.658Z"
+    },
+    {
+      "type": "DEMO_PROJECT8_COMPLETED",
+      "actorId": "dependency-simulator",
+      "entityId": "a458dcaf-1ea2-4070-9f1b-f470351fa89e",
+      "details": {
+        "inserted": 0,
+        "selected": 5
+      },
+      "at": "2026-10-01T02:56:47.660Z"
+    },
+    {
+      "type": "DEMO_PROJECT2_BOOTSTRAP",
+      "actorId": "dependency-simulator",
+      "entityId": "37a2d50a-bd40-4392-9a11-1ec990bd5d94",
+      "details": {
+        "inserted": 0
+      },
+      "at": "2026-10-01T02:56:48.337Z"
+    },
+    {
+      "type": "DEMO_ELIGIBILITY_EVALUATED",
+      "actorId": "dependency-simulator",
+      "entityId": "70f8782f-abf5-410e-9fa3-f9d6af48545d",
+      "details": {
+        "eligible": 7,
+        "failed": 1
+      },
+      "at": "2026-10-01T02:56:48.339Z"
+    },
+    {
+      "type": "DEMO_PROJECT1_COMPLETED",
+      "actorId": "dependency-simulator",
+      "entityId": "a001541e-1c6c-49a5-9362-0b306ad046ec",
+      "details": {
+        "inserted": 0
+      },
+      "at": "2026-10-01T02:56:48.341Z"
+    },
+    {
+      "type": "DEMO_PROJECT8_COMPLETED",
+      "actorId": "dependency-simulator",
+      "entityId": "255c3e93-c951-4358-9642-9bcc38bc8922",
+      "details": {
+        "inserted": 0,
+        "selected": 5
+      },
+      "at": "2026-10-01T02:56:48.343Z"
+    },
+    {
+      "type": "DEMO_PROJECT2_BOOTSTRAP",
+      "actorId": "dependency-simulator",
+      "entityId": "1fc506e9-8cfb-42b4-b1eb-57cfa570f770",
+      "details": {
+        "inserted": 0
+      },
+      "at": "2026-10-01T02:56:48.993Z"
+    },
+    {
+      "type": "DEMO_ELIGIBILITY_EVALUATED",
+      "actorId": "dependency-simulator",
+      "entityId": "3165ef20-cb7f-456e-b67d-ec348236024c",
+      "details": {
+        "eligible": 7,
+        "failed": 1
+      },
+      "at": "2026-10-01T02:56:48.995Z"
+    },
+    {
+      "type": "DEMO_PROJECT1_COMPLETED",
+      "actorId": "dependency-simulator",
+      "entityId": "22285cbe-3652-4100-a2c3-55c705e8d96c",
+      "details": {
+        "inserted": 0
+      },
+      "at": "2026-10-01T02:56:48.998Z"
+    },
+    {
+      "type": "DEMO_PROJECT8_COMPLETED",
+      "actorId": "dependency-simulator",
+      "entityId": "a53f7796-518a-4dc3-8017-5cba18f0bb9d",
+      "details": {
+        "inserted": 0,
+        "selected": 5
+      },
+      "at": "2026-10-01T02:56:49.000Z"
+    },
+    {
+      "type": "DEMO_PROJECT2_BOOTSTRAP",
+      "actorId": "dependency-simulator",
+      "entityId": "401b6006-28d9-4899-b30e-fb9b2e076bf6",
+      "details": {
+        "inserted": 0
+      },
+      "at": "2026-10-01T02:56:49.646Z"
+    },
+    {
+      "type": "DEMO_ELIGIBILITY_EVALUATED",
+      "actorId": "dependency-simulator",
+      "entityId": "37ff4f33-8da5-4652-8bb5-fe152470d279",
+      "details": {
+        "eligible": 7,
+        "failed": 1
+      },
+      "at": "2026-10-01T02:56:49.647Z"
+    },
+    {
+      "type": "DEMO_PROJECT1_COMPLETED",
+      "actorId": "dependency-simulator",
+      "entityId": "0bc55384-d110-42e4-b2e8-d75dbcfd3ac0",
+      "details": {
+        "inserted": 0
+      },
+      "at": "2026-10-01T02:56:49.648Z"
+    },
+    {
+      "type": "DEMO_PROJECT8_COMPLETED",
+      "actorId": "dependency-simulator",
+      "entityId": "2c5de74f-1803-4856-9259-e8063fa40eaa",
+      "details": {
+        "inserted": 0,
+        "selected": 5
+      },
+      "at": "2026-10-01T02:56:49.650Z"
+    },
+    {
+      "type": "DEMO_PROJECT2_BOOTSTRAP",
+      "actorId": "dependency-simulator",
+      "entityId": "fa958305-98ee-4d73-81e2-229b73ace0f7",
+      "details": {
+        "inserted": 0
+      },
+      "at": "2026-10-01T02:56:50.173Z"
+    },
+    {
+      "type": "DEMO_ELIGIBILITY_EVALUATED",
+      "actorId": "dependency-simulator",
+      "entityId": "8aca17d3-9a45-4141-8298-289778e8df8b",
+      "details": {
+        "eligible": 7,
+        "failed": 1
+      },
+      "at": "2026-10-01T02:56:50.175Z"
+    },
+    {
+      "type": "DEMO_PROJECT1_COMPLETED",
+      "actorId": "dependency-simulator",
+      "entityId": "16bd2ef5-7afc-4df9-9dd7-96198119fd62",
+      "details": {
+        "inserted": 0
+      },
+      "at": "2026-10-01T02:56:50.177Z"
+    },
+    {
+      "type": "DEMO_PROJECT8_COMPLETED",
+      "actorId": "dependency-simulator",
+      "entityId": "58b8328d-0b79-4b8d-9f91-3f5cae42bc4c",
+      "details": {
+        "inserted": 0,
+        "selected": 5
+      },
+      "at": "2026-10-01T02:56:50.179Z"
+    }
+  ]
+}
