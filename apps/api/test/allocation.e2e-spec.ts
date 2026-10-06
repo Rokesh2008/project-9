@@ -23,6 +23,7 @@ describe('Member 2 – Allocation workflow', () => {
 
   beforeAll(async () => {
     process.env.DATABASE_URL = process.env.DATABASE_URL ?? 'postgresql://postgres:postgres@localhost:5432/project9_test';
+    process.env.AUTH_REQUIRED = 'false';
     process.env.DEMO_MODE = 'true';
     process.env.STATE_FILE = `/tmp/project9-alloc-test-${process.pid}.json`;
 

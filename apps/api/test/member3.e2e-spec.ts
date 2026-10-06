@@ -20,6 +20,7 @@ describe('Member 3 acceptance paths', () => {
   let store: Store;
 
   beforeAll(async () => {
+    process.env.AUTH_REQUIRED = 'false';
     process.env.AI_SERVICE_URL = 'http://127.0.0.1:1';
     process.env.DEMO_MODE = 'true';
     process.env.STATE_FILE = `/tmp/project9-member3-test-${process.pid}.json`;
@@ -107,7 +108,7 @@ describe('Member 3 acceptance paths', () => {
     await request(app.getHttpServer()).post(`/api/agent/selection/recommendations/${id}/decision`)
       .send({ approverId: 'A-1', decision: 'APPROVE' }).expect(403);
     const approved = await request(app.getHttpServer()).post(`/api/agent/selection/recommendations/${id}/decision`)
-      .set('x-role', 'PLACEMENT_COORDINATOR').send({ approverId: 'A-1', decision: 'APPROVE' }).expect(201);
+      .set('x-role', 'COORDINATOR').send({ approverId: 'A-1', decision: 'APPROVE' }).expect(201);
     expect(approved.body.status).toBe('VERIFIED');
     expect(store.allocations.get('S-001')).toBe('PEPC-01 AI/ML');
   });

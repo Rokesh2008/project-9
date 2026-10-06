@@ -18,11 +18,11 @@ type Allocation = {
   trainingBatch: { batchCode: string; batchName: string } | null;
 };
 
-export function AllocationAdmin() {
+export function AllocationAdmin({ initialCycleId = '' }: { initialCycleId?: string }) {
   const [allocations, setAllocations] = useState<Allocation[]>([]);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
-  const [cycleId, setCycleId] = useState('');
+  const [cycleId, setCycleId] = useState(initialCycleId);
 
   async function refresh() {
     try {
@@ -77,9 +77,9 @@ export function AllocationAdmin() {
   };
 
   return (
-    <div style={{ padding: '24px', fontFamily: 'system-ui, sans-serif', maxWidth: 1200, margin: '0 auto' }}>
+    <div className="allocationWorkspace">
       <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 4 }}>Allocation Management</h1>
-      <p style={{ color: '#64748b', marginBottom: 24, fontSize: 14 }}>Member 2 — Student Allocation & Workflow</p>
+      <p style={{ color: '#64748b', marginBottom: 24, fontSize: 14 }}>Review training placements, approve allocations, and lock finalized records.</p>
 
       {notice && (
         <div style={{ padding: '12px 16px', background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 8, marginBottom: 16, fontSize: 14 }}>
@@ -98,7 +98,7 @@ export function AllocationAdmin() {
         <button
           disabled={busy}
           onClick={generate}
-          style={{ padding: '8px 20px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600, fontSize: 14 }}
+          style={{ padding: '8px 20px', background: 'var(--college-red)', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600, fontSize: 14 }}
         >
           Generate Allocations
         </button>

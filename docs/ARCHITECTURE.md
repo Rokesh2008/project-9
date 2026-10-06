@@ -76,7 +76,8 @@ Production mode uses signed bearer tokens:
 - `POST /api/auth/login` authenticates a User.
 - Token claims overwrite client-supplied actor/role headers.
 - Mutating rules/ranking/freeze/agent operations require ADMIN or COORDINATOR.
-- Allocation mutations allow authorized allocation staff.
+- Allocation approvals and advisory decisions allow faculty only for their assigned domain; administrators and coordinators retain cross-domain authority.
+- Student accounts are bound to one Student row and can read only their own selection profile. Faculty accounts are bound to one Domain row but may read all student profiles; only their assigned domain permits approval actions. Only administrators manage accounts.
 - Project 1/2/8 integration calls can authenticate with `x-integration-api-key`.
 - `AUTH_REQUIRED=false` is retained only for local development/backward-compatible tests.
 

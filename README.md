@@ -73,7 +73,7 @@ If the AI service is unavailable, advisory analysis has a bounded deterministic 
 
 ## Authentication and production mode
 
-Development can run with `AUTH_REQUIRED=false`. For deployment set:
+Authentication is required by default. Development can opt into `AUTH_REQUIRED=false` only for isolated local testing. For deployment set:
 
 ```env
 AUTH_REQUIRED=true
@@ -97,6 +97,8 @@ curl -X POST http://localhost:3000/api/auth/bootstrap \
 
 Then sign in via `POST /api/auth/login` or the web dashboard. In production, authenticated token claims override client-supplied role/actor headers.
 External integration endpoints require `x-integration-api-key` when authentication enforcement is enabled. Modifying integration requests also require an `Idempotency-Key`.
+
+An administrator can manage accounts in the dashboard or through `GET/POST /api/accounts` and `PATCH /api/accounts/:id`. Student accounts must link to one imported student; faculty (`PEP_STAFF`) accounts must link to one active domain. Students can read only `GET /api/profiles/me`. Staff can search `GET /api/profiles` and open any student’s read-only `GET /api/profiles/:studentId` explanation. Faculty recommendation and allocation queues are filtered to their domain, and the API rejects cross-domain decisions. Deactivation, role changes, and password resets revoke existing sessions. Profiles explain eligibility failures, waitlist outcomes, ranking/classification, and next steps from official cycle records; advisory recommendations never finalize an allocation automatically.
 
 ## Core endpoints
 

@@ -12,6 +12,7 @@ describe('Official Project 2 -> 9 -> 1 -> 9 -> 8 integration', () => {
   let cycleId: string;
 
   beforeAll(async () => {
+    process.env.AUTH_REQUIRED = 'false';
     process.env.PERSISTENCE_DRIVER = 'postgres';
     process.env.OFFICIAL_PROJECTION = 'true';
     process.env.DEMO_MODE = 'false';

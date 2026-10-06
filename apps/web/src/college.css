@@ -1,0 +1,73 @@
+/* College identity is shared by login, student, faculty and administration. */
+:root { --college-red: #b51f2a; --blue: var(--college-red); --college-tint: #fff2f1; background: #faf9f7; }
+.rosterDirectory { margin-top: 24px; }
+.rosterDirectory .ledgerToolbar { margin: 18px 0; flex-wrap: wrap; }
+.rosterDirectory select { max-width: 100%; }
+.rosterDirectory table { min-width: 850px; }
+.rosterDirectory td { overflow-wrap: anywhere; }
+.rosterProfile { margin-top: 24px; }
+.rosterProfile > button { margin-bottom: 16px; }
+.importedTraining { margin-bottom: 22px; }
+.collegeBrand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.collegeBrand img { display: block; width: 58px; height: 58px; object-fit: contain; flex-shrink: 0; }
+.collegeBrandText { display: flex; flex-direction: column; min-width: 0; line-height: 1.3; }
+.collegeBrandText strong { font-size: 20px; letter-spacing: -.035em; }
+.collegeBrandText > span { font-size: 12px; font-weight: 600; }
+.collegeBrandText small { font-size: 10px; font-weight: 500; color: #767078; margin-top: 5px; }
+.workspaceBrand { min-width: 260px; }
+.workspaceTopbar { border-top: 3px solid var(--college-red); gap: 16px; }
+.workspaceSidebar { background: #f7f3f1; border-color: #e2d9d7; }
+.workspaceSidebar nav a.active { background: var(--college-red); box-shadow: 0 2px 5px #b51f2a20; }
+.workspaceSidebar nav a:hover:not(.active), button:hover, .ghost:hover { background: var(--college-tint); }
+.workspaceMain, .studentWorkspace { background: #faf9f7; }
+.primary.dark { background: var(--college-red); border-color: var(--college-red); }
+.primary:hover, .primary.dark:hover, .upload:hover, .portalActions button:not(.ghost):hover { background: #931722; border-color: #931722; }
+.cycleChip, .outlineBadge { color: var(--college-red); }
+.outlineBadge, .avatar, .loginEmblem { background: var(--college-tint); border-color: #eec8c9; }
+.commandHero, .facultyHero, .outcomeHero { background: #fff; }
+.notice, .portalNotice { background: #f7f3f1; border-color: #e2d9d7; color: #5d4d50; }
+.lifecycleCards article, .lifecycleCards .hasRecords, .source, th, .trackHeader,
+.rationaleFacts > span, .academicFacts > span, .transparencyCard { background: #f8f4f2; }
+.source > span, .preferenceList li span, .nextStepList li > span { background: #fae5e4; }
+.processStep:before, .stageLine, .vectorBar { background: #ead6d5; }
+.processStep.current > span { box-shadow: 0 0 0 3px #fae5e4; }
+.metric.neutral { border-top-color: #807477; }
+tbody tr:hover, .nextStepList li, .profileFootnote { background: #fcf9f7; }
+.authorityCard, .governanceBanner, .domainTabs button.active, .profileStudioHeader,
+.ledgerTabs button:not(.active), .analysisGrid article, .emptyCard, .searchField {
+  background: #f8f4f2; border-color: #e2d9d7;
+}
+.authorityCard { color: #53454a; }
+.rowActions button:not(.ghost), .flow .approval { background: var(--college-tint); border-color: #eec8c9; color: var(--college-red); }
+.selectedRow, .selectedQueue { background: #fff2f1 !important; }
+.bar, .bar > i, .bar em { background: #ead6d5; }
+.loginPage { background: #fff; }
+.loginIntro { background: radial-gradient(ellipse at top left, #f9e6e2, transparent 65%), #faf5f1; border-color: #e2d9d7; }
+.loginBrand .collegeBrand { gap: 20px; }
+.loginBrand .collegeBrand img { width: 94px; height: 94px; }
+.loginBrand .collegeBrandText strong { font-size: 30px; }
+.loginBrand .collegeBrandText > span { font-size: 16px; }
+.loginBrand .collegeBrandText small { font-size: 12px; }
+.loginIntro h1 { max-width: 440px; }
+.loginIntro > small a, .workspaceFooter a { font-size: inherit; text-decoration: none; }
+.loginIntro > small a:hover, .workspaceFooter a:hover { text-decoration: underline; }
+button:focus-visible, a:focus-visible { outline-color: #cf6670; }
+input:focus, select:focus, textarea:focus { outline-color: #e7a5aa; }
+@media (max-width: 1200px) { .cycleChip { display: none; } .workspaceBrand { min-width: 245px; } }
+@media (max-width: 700px) {
+  .workspaceBrand { min-width: 0; flex: 1; }
+  .collegeBrand { gap: 7px; }
+  .collegeBrand img { width: 38px; height: 38px; }
+  .collegeBrandText strong { font-size: 15px; }
+  .collegeBrandText > span { font-size: 9px; }
+  .collegeBrandText small { font-size: 8px; margin-top: 3px; }
+  .topbarActions { margin-left: 0; flex-shrink: 0; }
+  .topbarActions .primary svg { display: none; }
+  .accountIdentity { display: none; }
+  .workspaceTopbar { gap: 6px; }
+  .loginBrand .collegeBrand { gap: 12px; }
+  .loginBrand .collegeBrand img { width: 68px; height: 68px; }
+  .loginBrand .collegeBrandText strong { font-size: 23px; }
+  .loginBrand .collegeBrandText > span { font-size: 13px; }
+  .loginBrand .collegeBrandText small { font-size: 10px; }
+}

@@ -20,6 +20,12 @@ export interface AuthPrincipal {
   role: Role;
   iat: number;
   exp: number;
+  ver?: number;
+  studentId?: string | null;
+  facultyDomainId?: string | null;
+  facultyDomainCode?: string | null;
+  facultyDomainName?: string | null;
+  loginIdentifier?: string;
 }
 
 @Injectable()
@@ -27,17 +33,24 @@ export class AuthService {
   constructor(private readonly prisma: PrismaService) {}
 
   async login(email: string, password: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { email: email.trim().toLowerCase() },
-    });
+    const identifier = email.trim();
+    // Register-number login resolves only the account linked to that student.
+    // Do not fall back to names or serial numbers, which are not unique identifiers.
+    const student = !identifier.includes('@')
+      ? await this.prisma.student.findUnique({ where: { registerNumber: identifier.toUpperCase() }, include: { user: true } })
+      : null;
+    const user = identifier.includes('@')
+      ? await this.prisma.user.findUnique({ where: { email: identifier.toLowerCase() } })
+      : student?.isActive && student.user?.role === 'STUDENT' ? student.user : null;
     if (!user || !user.isActive || !this.verifyPassword(password, user.password)) {
-      throw new UnauthorizedException('Invalid email or password');
+      throw new UnauthorizedException('Invalid login ID or password');
     }
 
     const token = this.signToken({
       sub: user.id,
       email: user.email,
       role: user.role,
+      ver: user.authVersion,
     });
     return {
       accessToken: token,
@@ -48,6 +61,8 @@ export class AuthService {
         email: user.email,
         name: user.name,
         role: user.role,
+        studentId: user.studentId,
+        facultyDomainId: user.facultyDomainId,
       },
     };
   }
@@ -82,6 +97,7 @@ export class AuthService {
           password: this.hashPassword(password),
           role: 'ADMIN',
           isActive: true,
+          authVersion: { increment: 1 },
         },
       });
       return { id: user.id, email: user.email, role: user.role };
@@ -98,7 +114,7 @@ export class AuthService {
     return { id: user.id, email: user.email, role: user.role };
   }
 
-  signToken(input: { sub: string; email: string; role: Role }) {
+  signToken(input: { sub: string; email: string; role: Role; ver: number }) {
     const now = Math.floor(Date.now() / 1000);
     const payload: AuthPrincipal = {
       ...input,
@@ -146,6 +162,28 @@ export class AuthService {
   extractBearer(value?: string): AuthPrincipal | null {
     if (!value?.startsWith('Bearer ')) return null;
     return this.verifyToken(value.slice('Bearer '.length).trim());
+  }
+
+  async resolvePrincipal(token: AuthPrincipal): Promise<AuthPrincipal> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: token.sub },
+      include: { facultyDomain: { select: { code: true, name: true } }, student: { select: { registerNumber: true } } },
+    });
+    if (!user || !user.isActive || user.email !== token.email) {
+      throw new UnauthorizedException('Account is inactive or no longer exists');
+    }
+    if (user.authVersion !== token.ver) {
+      throw new UnauthorizedException('This session has been revoked');
+    }
+    return {
+      ...token,
+      role: user.role,
+      studentId: user.studentId,
+      facultyDomainId: user.facultyDomainId,
+      facultyDomainCode: user.facultyDomain?.code ?? null,
+      facultyDomainName: user.facultyDomain?.name ?? null,
+      loginIdentifier: user.role === 'STUDENT' ? user.student?.registerNumber ?? user.email : user.email,
+    };
   }
 
   hashPassword(password: string) {

@@ -92,10 +92,15 @@ model User {
   name      String
   role      Role     @default(STUDENT)
   studentId String?  @unique
+  facultyDomainId String?
   isActive  Boolean  @default(true)
+  authVersion Int    @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   student   Student? @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  facultyDomain Domain? @relation("FacultyDomain", fields: [facultyDomainId], references: [id], onDelete: SetNull)
+
+  @@index([facultyDomainId])
 }
 
 model Department {
@@ -139,6 +144,7 @@ model Student {
   createdAt              DateTime                @default(now())
   updatedAt              DateTime                @updatedAt
   user                   User?
+  rosterAllocation       RosterAllocation?
   assessmentResults      AssessmentResult[]
   credentials            StudentCredential[]
   preferences            StudentPreference[]
@@ -156,6 +162,22 @@ model Student {
   @@index([batchId])
   @@index([studentId])
   @@index([email])
+}
+
+// Existing assignments supplied by the college, independent of a new scored cycle.
+model RosterAllocation {
+  id            String   @id @default(uuid())
+  studentId     String   @unique
+  trainingGroup String
+  trainingLevel String?
+  sourceFile    String
+  sourceSheet   String
+  sourceRows    Json
+  sourceHash    String
+  importedAt    DateTime @default(now())
+  student       Student  @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  @@index([trainingGroup])
 }
 
 model SelectionCycle {
@@ -252,6 +274,7 @@ model Domain {
   trainingBatches TrainingBatch[]
   preferences     StudentPreference[]
   allocations     Allocation[]
+  facultyUsers    User[]               @relation("FacultyDomain")
 
   @@index([programId])
 }

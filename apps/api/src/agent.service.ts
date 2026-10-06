@@ -1,10 +1,11 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { AllocationService } from './allocation/allocation.service';
 import { PrismaService } from './common/prisma.service';
 import { AgentRecommendation, CanonicalStudent, DOMAIN_CAPACITIES } from './domain';
 import { AiService } from './ai.service';
 import { Store } from './store';
+import { AuthPrincipal } from './auth/auth.service';
 
 @Injectable()
 export class AgentService {
@@ -25,9 +26,11 @@ export class AgentService {
     id: string,
     approverId: string,
     decision: 'APPROVE' | 'REJECT',
+    principal?: AuthPrincipal,
   ) {
     const recommendation = this.store.recommendations.get(id);
     if (!recommendation) throw new NotFoundException('Recommendation not found');
+    await this.assertFacultyRecommendation(principal, recommendation.recommendedDomain);
     if (recommendation.status !== 'PENDING_APPROVAL') {
       throw new BadRequestException('Recommendation already decided');
     }
@@ -40,7 +43,7 @@ export class AgentService {
           `Cannot apply: ${recommendation.conflicts.join(', ')}`,
         );
       }
-      await this.applyOfficial(recommendation, approverId);
+      await this.applyOfficial(recommendation, approverId, principal?.role ?? 'ADMIN');
     } else {
       this.assertCanApplyStandalone(recommendation);
       recommendation.status = 'APPROVED';
@@ -57,6 +60,7 @@ export class AgentService {
         studentId: recommendation.studentId,
         domain: recommendation.recommendedDomain,
         finalStatus: recommendation.status,
+        actorRole: principal?.role ?? 'ADMIN',
       },
       at: new Date().toISOString(),
     });
@@ -64,8 +68,22 @@ export class AgentService {
     return recommendation;
   }
 
-  list() {
-    return [...this.store.recommendations.values()];
+  async list(principal?: AuthPrincipal) {
+    const recommendations = [...this.store.recommendations.values()];
+    if (principal?.role !== 'PEP_STAFF') return recommendations;
+    if (!principal.facultyDomainId) throw new ForbiddenException('No faculty domain assigned');
+    const domain = await this.prisma.domain.findUnique({ where: { id: principal.facultyDomainId } });
+    if (!domain) throw new ForbiddenException('Assigned domain no longer exists');
+    return recommendations.filter((recommendation) => this.domainCode(recommendation.recommendedDomain) === domain.code);
+  }
+
+  private async assertFacultyRecommendation(principal: AuthPrincipal | undefined, recommendedDomain: string) {
+    if (principal?.role !== 'PEP_STAFF') return;
+    if (!principal.facultyDomainId) throw new ForbiddenException('No faculty domain assigned');
+    const domain = await this.prisma.domain.findUnique({ where: { id: principal.facultyDomainId } });
+    if (!domain || domain.code !== this.domainCode(recommendedDomain)) {
+      throw new ForbiddenException('You can decide recommendations only for your assigned domain');
+    }
   }
 
   private async runStandalone() {
@@ -213,6 +231,7 @@ export class AgentService {
   private async applyOfficial(
     recommendation: AgentRecommendation,
     approverId: string,
+    approverRole: string,
   ) {
     const cycleId = recommendation.selectionCycleId;
     if (!cycleId) throw new BadRequestException('Selection cycle is missing');
@@ -226,6 +245,7 @@ export class AgentService {
       domainCode,
       approverId,
       `Approved selection-agent recommendation: ${recommendation.rationale.join('; ')}`,
+      approverRole,
     );
 
     const student = await this.prisma.student.findUnique({

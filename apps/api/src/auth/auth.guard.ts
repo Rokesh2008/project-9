@@ -12,7 +12,7 @@ import { AuthService } from './auth.service';
 export class AuthGuard implements CanActivate {
   constructor(private readonly auth: AuthService) {}
 
-  canActivate(context: ExecutionContext) {
+  async canActivate(context: ExecutionContext) {
     const request = context.switchToHttp().getRequest<{
       path?: string;
       url?: string;
@@ -25,7 +25,7 @@ export class AuthGuard implements CanActivate {
     if (this.isPublicPath(path)) return true;
 
     const required =
-      (process.env.AUTH_REQUIRED ?? 'false').toLowerCase() === 'true';
+      (process.env.AUTH_REQUIRED ?? 'true').toLowerCase() === 'true';
 
     if (path.startsWith('/api/integrations/')) {
       const configured = process.env.INTEGRATION_API_KEY;
@@ -47,22 +47,21 @@ export class AuthGuard implements CanActivate {
       return true;
     }
 
-    const principal = this.auth.extractBearer(authorization);
-    if (!principal) {
+    const token = this.auth.extractBearer(authorization);
+    if (!token) {
       if (required) throw new UnauthorizedException('Bearer token required');
       return true;
     }
 
+    const principal = await this.auth.resolvePrincipal(token);
     request.user = principal;
     request.headers['x-role'] = principal.role;
     request.headers['x-actor-id'] = principal.sub;
 
-    if (required) {
-      if (path.startsWith('/api/integrations/') && !['ADMIN', 'COORDINATOR'].includes(principal.role)) {
-        throw new ForbiddenException('Administrator or coordinator role required for integrations');
-      }
-      this.assertMutationRole(path, request.method ?? 'GET', principal.role);
+    if (path.startsWith('/api/integrations/') && !['ADMIN', 'COORDINATOR'].includes(principal.role)) {
+      throw new ForbiddenException('Administrator or coordinator role required for integrations');
     }
+    this.assertAccess(path, request.method ?? 'GET', principal.role);
     return true;
   }
 
@@ -75,8 +74,33 @@ export class AuthGuard implements CanActivate {
     );
   }
 
-  private assertMutationRole(path: string, method: string, role: string) {
-    if (method.toUpperCase() === 'GET') return;
+  private assertAccess(path: string, method: string, role: string) {
+    const action = method.toUpperCase();
+    if (path.startsWith('/api/accounts')) {
+      if (role !== 'ADMIN') throw new ForbiddenException('Administrator role required');
+      return;
+    }
+    if (role === 'STUDENT') {
+      if (action === 'GET' && (path === '/api/auth/me' || path === '/api/profiles/me')) return;
+      throw new ForbiddenException('Students may view only their own selection profile');
+    }
+    if (role === 'PEP_STAFF') {
+      const facultyRead = action === 'GET' && (
+        path === '/api/auth/me' ||
+        path === '/api/profiles' ||
+        path.startsWith('/api/profiles/') ||
+        path === '/api/allocations' ||
+        path.startsWith('/api/allocations/') ||
+        path === '/api/agent/selection/recommendations'
+      );
+      const allocationDecision = action === 'POST' &&
+        /^\/api\/allocations\/[^/]+\/(approve|reject)$/.test(path);
+      const advisoryDecision = action === 'POST' &&
+        /^\/api\/agent\/selection\/recommendations\/[^/]+\/decision$/.test(path);
+      if (facultyRead || allocationDecision || advisoryDecision) return;
+      throw new ForbiddenException('Faculty access is limited to assigned-domain review');
+    }
+    if (action === 'GET') return;
 
     const protectedPrefixes = [
       '/api/cycles',
@@ -93,7 +117,7 @@ export class AuthGuard implements CanActivate {
     ];
 
     if (path.startsWith('/api/allocations')) {
-      if (!['ADMIN', 'COORDINATOR', 'PEP_STAFF'].includes(role)) {
+      if (!['ADMIN', 'COORDINATOR'].includes(role)) {
         throw new ForbiddenException('Allocation staff role required');
       }
       return;

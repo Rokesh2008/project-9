@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
+import { AuthPrincipal } from '../auth/auth.service';
 
 @Injectable()
 export class AllocationService {
@@ -149,6 +150,7 @@ export class AllocationService {
     domainCode: string,
     actorId: string,
     reason: string,
+    actorRole = 'ADMIN',
   ) {
     const student = await this.prisma.student.findUnique({
       where: { studentId: externalStudentId },
@@ -237,7 +239,7 @@ export class AllocationService {
             decisionType: 'OVERRIDE_ALLOCATION',
             reason,
             actor: actorId,
-            role: 'ADMIN',
+            role: actorRole,
             targetDomainId: domain.id,
             targetBatchId: batch.id,
             metadata: { source: 'SELECTION_INTELLIGENCE_AGENT' },
@@ -252,7 +254,7 @@ export class AllocationService {
             fromState: cycleStatus?.currentState ?? 'ALLOCATION',
             toState: 'FINALIZED',
             actor: actorId,
-            role: 'ADMIN',
+            role: actorRole,
             reason,
             metadata: {
               source: 'SELECTION_INTELLIGENCE_AGENT',
@@ -270,26 +272,32 @@ export class AllocationService {
     throw new BadRequestException('Recommended domain has no available capacity');
   }
 
-  async findAll(selectionCycleId?: string) {
+  async findAll(selectionCycleId?: string, principal?: AuthPrincipal) {
+    const facultyDomainId = this.facultyDomain(principal);
     return this.prisma.allocation.findMany({
-      where: selectionCycleId ? { selectionCycleId } : undefined,
+      where: {
+        ...(selectionCycleId ? { selectionCycleId } : {}),
+        ...(facultyDomainId ? { domainId: facultyDomainId } : {}),
+      },
       include: { student: true, domain: true, trainingBatch: true },
       orderBy: { createdAt: 'desc' },
     });
   }
 
-  async findByStudent(studentId: string) {
+  async findByStudent(studentId: string, principal?: AuthPrincipal) {
+    const facultyDomainId = this.facultyDomain(principal);
     const allocation = await this.prisma.allocation.findFirst({
-      where: { studentId },
+      where: { studentId, ...(facultyDomainId ? { domainId: facultyDomainId } : {}) },
       include: { student: true, domain: true, trainingBatch: true, selectionCycle: true },
     });
     if (!allocation) throw new NotFoundException('No allocation found for this student');
     return allocation;
   }
 
-  async approve(allocationId: string, actorId: string, role: string, reason: string) {
+  async approve(allocationId: string, actorId: string, role: string, reason: string, facultyDomainId?: string | null) {
     this.assertAdminRole(role);
     const allocation = await this.getAllocationOrFail(allocationId);
+    this.assertFacultyAllocation(role, facultyDomainId, allocation.domainId);
 
     if (allocation.status !== 'PENDING_APPROVAL' && allocation.status !== 'MANUAL_REVIEW') {
       throw new BadRequestException(`Cannot approve allocation with status ${allocation.status}`);
@@ -320,9 +328,10 @@ export class AllocationService {
     return updated;
   }
 
-  async reject(allocationId: string, actorId: string, role: string, reason: string) {
+  async reject(allocationId: string, actorId: string, role: string, reason: string, facultyDomainId?: string | null) {
     this.assertAdminRole(role);
     const allocation = await this.getAllocationOrFail(allocationId);
+    this.assertFacultyAllocation(role, facultyDomainId, allocation.domainId);
 
     if (allocation.status === 'FROZEN') throw new BadRequestException('Cannot reject a frozen allocation');
     if (allocation.status === 'REJECTED') throw new BadRequestException('Allocation already rejected');
@@ -337,7 +346,7 @@ export class AllocationService {
 
     const updated = await this.prisma.allocation.update({
       where: { id: allocationId },
-      data: { status: 'REJECTED' },
+      data: { status: 'REJECTED', failureReason: reason },
       include: { student: true, domain: true },
     });
 
@@ -387,6 +396,18 @@ export class AllocationService {
   private assertAdminRole(role: string) {
     if (!['ADMIN', 'COORDINATOR', 'PEP_STAFF'].includes(role)) {
       throw new ForbiddenException('Insufficient role for this action');
+    }
+  }
+
+  private facultyDomain(principal?: AuthPrincipal) {
+    if (principal?.role !== 'PEP_STAFF') return null;
+    if (!principal.facultyDomainId) throw new ForbiddenException('No faculty domain assigned');
+    return principal.facultyDomainId;
+  }
+
+  private assertFacultyAllocation(role: string, assignedDomainId: string | null | undefined, allocationDomainId: string | null) {
+    if (role === 'PEP_STAFF' && (!assignedDomainId || assignedDomainId !== allocationDomainId)) {
+      throw new ForbiddenException('You can decide allocations only for your assigned domain');
     }
   }
 

@@ -8,6 +8,7 @@ import {
   Param,
   Post,
   Query,
+  Req,
   Res,
   UploadedFile,
   UseInterceptors,
@@ -24,6 +25,7 @@ import { IntelligenceService } from './intelligence.service';
 import { OfficialReadService } from './official-read.service';
 import { ReportsService } from './reports.service';
 import { Store } from './store';
+import { AuthPrincipal } from './auth/auth.service';
 
 @Controller()
 export class HealthController {
@@ -158,17 +160,18 @@ export class AgentController {
   @Post('run') run(@Body() body: RunAgentDto) {
     return this.agent.run(body.selectionCycleId);
   }
-  @Get('recommendations') list() { return this.agent.list(); }
+  @Get('recommendations') list(@Req() request: { user?: AuthPrincipal }) { return this.agent.list(request.user); }
   @Post('recommendations/:id/decision') decision(
     @Param('id') id: string,
     @Body() body: ApprovalDto,
     @Headers('x-role') role: string,
     @Headers('x-actor-id') actorId: string,
+    @Req() request: { user?: AuthPrincipal },
   ) {
-    if (!['ADMIN', 'COORDINATOR', 'PLACEMENT_COORDINATOR'].includes(role)) {
+    if (!['ADMIN', 'COORDINATOR', 'PEP_STAFF'].includes(role)) {
       throw new ForbiddenException('Authorized approval role required');
     }
-    return this.agent.approve(id, actorId || body.approverId, body.decision);
+    return this.agent.approve(id, actorId || body.approverId, body.decision, request.user);
   }
 }
 

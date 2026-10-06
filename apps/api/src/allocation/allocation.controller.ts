@@ -7,10 +7,12 @@ import {
   Param,
   Post,
   Query,
+  Req,
 } from '@nestjs/common';
 import { ApiHeader, ApiTags } from '@nestjs/swagger';
 import { AllocationService } from './allocation.service';
 import { ApproveRejectDto, FreezeDto, GenerateAllocationsDto } from './allocation.dto';
+import { AuthPrincipal } from '../auth/auth.service';
 
 @ApiTags('Allocations (Member 2)')
 @Controller('allocations')
@@ -24,13 +26,13 @@ export class AllocationController {
   }
 
   @Get()
-  findAll(@Query('selectionCycleId') selectionCycleId?: string) {
-    return this.service.findAll(selectionCycleId);
+  findAll(@Query('selectionCycleId') selectionCycleId?: string, @Req() request?: { user?: AuthPrincipal }) {
+    return this.service.findAll(selectionCycleId, request?.user);
   }
 
   @Get(':studentId')
-  findByStudent(@Param('studentId') studentId: string) {
-    return this.service.findByStudent(studentId);
+  findByStudent(@Param('studentId') studentId: string, @Req() request: { user?: AuthPrincipal }) {
+    return this.service.findByStudent(studentId, request.user);
   }
 
   @Post(':id/approve')
@@ -41,8 +43,9 @@ export class AllocationController {
     @Body() body: ApproveRejectDto,
     @Headers('x-role') role: string,
     @Headers('x-actor-id') headerActorId: string,
+    @Req() request: { user?: AuthPrincipal },
   ) {
-    return this.service.approve(id, headerActorId || body.actorId, role, body.reason);
+    return this.service.approve(id, headerActorId || body.actorId, role, body.reason, request.user?.facultyDomainId);
   }
 
   @Post(':id/reject')
@@ -53,8 +56,9 @@ export class AllocationController {
     @Body() body: ApproveRejectDto,
     @Headers('x-role') role: string,
     @Headers('x-actor-id') headerActorId: string,
+    @Req() request: { user?: AuthPrincipal },
   ) {
-    return this.service.reject(id, headerActorId || body.actorId, role, body.reason);
+    return this.service.reject(id, headerActorId || body.actorId, role, body.reason, request.user?.facultyDomainId);
   }
 
   @Post(':id/freeze')
