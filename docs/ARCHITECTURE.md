@@ -1,58 +1,98 @@
 # Architecture and integration decisions
 
-## Flow
+## End-to-end flow
 
 ```text
-Project 2 / Project 1 / Project 8 / CSV-XLSX
-                    |
-            Integration Gateway
-       validate -> normalize -> idempotency
-                    |
-             Canonical DTOs + logs
-                    |
-        Team A deterministic rule engine
-                    |
-           official eligible pool
-                    |
-      Advisory AI + Selection Agent
- analyze -> conflicts -> recommend -> explain
-                    |
-     authorized decision -> apply -> verify
-                    |
-            reports + audit events
+Project 2 / CSV-XLSX
+        |
+        v
+Integration Gateway
+validate -> normalize -> idempotency -> official projection
+        |
+        v
+Student + Assessment + Verified Credential + Preference tables
+        |
+        v
+Eligibility -> Ranking -> HOPE / PEP / WAITLIST
+        |
+        +----> Project 1 communication
+        |         |
+        |         v
+        |     re-evaluate eligibility
+        |
+        +----> Project 8 interview
+                  |
+                  +-> PASS -> Selection
+                  +-> HOPE FAIL -> PEP fallback
+                  +-> later FAIL -> Admin Review
+
+Selection -> Preference/Capacity Allocation -> Approval -> Freeze
+        |
+        +----> advisory AI / selection intelligence
+                  recommend -> human approval -> official allocation service
 ```
 
-External systems never call internal rule or allocation methods directly. The gateway owns transport concerns; Team A owns institutional decisions.
+External projects never write rule/rank/allocation tables directly. The integration gateway owns transport/idempotency and projects validated external records into normalized tables. Official business services remain authoritative.
 
-## Data ownership
+## Data authority
 
-Member 3 owns `integration_sources`, `integration_jobs`, `integration_logs`, `external_references`, `ai_student_analysis`, `agent_runs`, `agent_recommendations`, and `report_snapshots`. The Prisma schema defines uniqueness and lifecycle fields for those entities.
+PostgreSQL is the official source of truth for:
+- Student, Department, Batch and SelectionCycle
+- AssessmentResult and StudentCredential
+- EligibilityResult and rule versions
+- StudentScore, StudentRanking and ranking snapshots
+- HopePepClassification
+- StudentPreference, TrainingBatch and Allocation
+- StudentCycleStatus, AdminDecision and workflow/score audit logs
 
-Official student, eligibility, rank, program selection, capacity, and allocation tables are intentionally not duplicated here. During integration, repository ports should reference those shared entities by ID.
+The file/PostgreSQL RuntimeState store remains only for advisory/demo compatibility and Member 3 legacy UI state. Official dashboard/report endpoints read normalized Prisma tables when official projection is enabled.
 
-## Reliability model
+## Deterministic decision boundary
 
-- A caller supplies a stable idempotency key per logical batch.
-- Payload validation happens before any loop writes records.
-- The same event key returns the original result.
-- Project 1 `resultId` and Project 8 `attemptId` are separately unique, preventing overwrite while allowing multiple attempts.
-- Every job records source, operation, method, count, timing, status, and error.
-- AI calls have a short timeout and deterministic fallback; an AI outage cannot block official selection.
-- Approval rechecks capacity immediately before applying, then reads the allocation back to verify it.
+AI does not decide official eligibility, rank, classification, capacity or selection. The rule/ranking engine is deterministic and versioned.
 
-## Published capacity baseline
+Capacity exhaustion is represented separately from eligibility failure:
+- `NOT_ELIGIBLE` = institutional rules failed.
+- `WAITLIST` = eligible, but HOPE/PEP capacity is currently exhausted.
 
-The supplied 2029 prerequisites document lists capacities for PEPC 1-18: 70, 60, 120, 70, 70, 70, 70, 60, 40, 60, 40, 40, 40, 50, 100, 50, 100, and 50. These values are seeded as a reporting baseline, not immutable policy. A production cycle should version them in Team A's capacity tables and require authorized changes.
+## Allocation integrity
 
-## Known handoff assumptions
+Training-batch capacity is claimed with an atomic SQL compare-and-increment inside a Prisma transaction. Creating the Allocation row and audit record occurs in the same transaction, preventing concurrent requests from taking the same final seat.
 
-- Interview eligibility and final selection are separate stages.
-- Programming-round clearance plus completed domain prerequisites makes a student eligible for a one-to-one interview; it does not guarantee final selection.
-- The prerequisite document contains dates and external course links that may change. They should be ingested into versioned rule configuration only after coordinator review.
-- Project 1 and Project 8 payload field names may differ in the final systems. Keep the canonical DTOs stable and change only the adapter mappings.
+Approved AI recommendations call the same AllocationService, recheck live capacity, create an auditable official allocation and verify the written result before the recommendation becomes `VERIFIED`.
 
-## Standalone dependency mode
+## External integration reliability
 
-`DEMO_MODE=true` enables controlled simulators for the systems that are not yet delivered. The simulator generates Project 2-style student inputs, a deterministic demo eligibility projection, Project 1 communication results, and Project 8 interview results. Every simulated transition is labelled `DEMO_ONLY` and audited. Set `DEMO_MODE=false` when real adapters are available; no dashboard or agent contract changes are required.
+- Modifying integration requests require a stable `Idempotency-Key`.
+- Project 1 result IDs and Project 8 attempt IDs are unique per student.
+- API and CSV/XLSX Project 2 ingestion use the same DTO and official projection code path.
+- Project 1 results are persisted as communication assessments and trigger eligibility re-evaluation.
+- Project 8 attempts are append-only and update workflow/classification state without deleting prior attempts.
+- Workflow state changes from external systems are written to WorkflowAuditLog.
 
-Standalone development persists an atomic JSON snapshot. Docker sets `PERSISTENCE_DRIVER=postgres`, initializes the Prisma schema, and persists the same state in PostgreSQL. This allows the module to run today without weakening its production database path.
+## Authentication
+
+Production mode uses signed bearer tokens:
+- `POST /api/auth/login` authenticates a User.
+- Token claims overwrite client-supplied actor/role headers.
+- Mutating rules/ranking/freeze/agent operations require ADMIN or COORDINATOR.
+- Allocation approvals and advisory decisions allow faculty only for their assigned domain; administrators and coordinators retain cross-domain authority.
+- Student accounts are bound to one Student row and can read only their own selection profile. Faculty accounts are bound to one Domain row but may read all student profiles; only their assigned domain permits approval actions. Only administrators manage accounts.
+- Project 1/2/8 integration calls can authenticate with `x-integration-api-key`.
+- `AUTH_REQUIRED=false` is retained only for local development/backward-compatible tests.
+
+## Freeze authority
+
+Before freeze, live eligibility/ranking/classification is authoritative. After freeze, RankingSnapshot + RankingSnapshotEntry is authoritative. Live recalculation is blocked from silently replacing a frozen selection.
+
+The freeze scheduler is opt-in through `ENABLE_FREEZE_SCHEDULER=true` and executes due schedules through the same FreezeService used by manual execution.
+
+## Database migrations
+
+Prisma migrations are ordered from base schema through integration/auth-related schema changes and are applied with:
+
+```bash
+npm run prisma:deploy -w apps/api
+```
+
+Production containers never use `prisma db push`.

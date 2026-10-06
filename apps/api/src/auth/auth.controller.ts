@@ -1,45 +1,46 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
-import { ApiTags, ApiOperation } from '@nestjs/swagger';
-import { IsEmail, IsOptional, IsString, MinLength } from 'class-validator';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { AuthService } from './auth.service';
-import { Public } from './decorators/public.decorator';
-import { CurrentUser } from './decorators/current-user.decorator';
-
-export class LoginDto {
-  @ApiProperty() @IsEmail() email!: string;
-  @ApiProperty() @IsString() @MinLength(4) password!: string;
-}
-
-export class RegisterDto {
-  @ApiProperty() @IsEmail() email!: string;
-  @ApiProperty() @IsString() @MinLength(4) password!: string;
-  @ApiProperty() @IsString() name!: string;
-  @ApiPropertyOptional() @IsOptional() @IsString() role?: string;
-}
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  Post,
+  Req,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { ApiBearerAuth, ApiHeader, ApiTags } from '@nestjs/swagger';
+import { AuthService, AuthPrincipal } from './auth.service';
+import { BootstrapAdminDto, LoginDto } from './auth.dto';
 
 @ApiTags('Authentication')
 @Controller('auth')
 export class AuthController {
   constructor(private readonly auth: AuthService) {}
 
-  @Public()
   @Post('login')
-  @ApiOperation({ summary: 'Login and receive a JWT token' })
-  async login(@Body() dto: LoginDto) {
-    return this.auth.login(dto.email, dto.password);
+  login(@Body() body: LoginDto) {
+    return this.auth.login(body.email, body.password);
   }
 
-  @Public()
-  @Post('register')
-  @ApiOperation({ summary: 'Register a new user' })
-  async register(@Body() dto: RegisterDto) {
-    return this.auth.register(dto);
+  @Post('bootstrap')
+  @ApiHeader({ name: 'x-bootstrap-key', required: true })
+  bootstrap(
+    @Body() body: BootstrapAdminDto,
+    @Headers('x-bootstrap-key') bootstrapKey: string,
+  ) {
+    return this.auth.bootstrapAdmin(
+      body.name,
+      body.email,
+      body.password,
+      bootstrapKey,
+    );
   }
 
-  @Get('profile')
-  @ApiOperation({ summary: 'Get current user profile' })
-  async profile(@CurrentUser('id') userId: string) {
-    return this.auth.getProfile(userId);
+  @Get('me')
+  @ApiBearerAuth()
+  me(@Req() request: { user?: AuthPrincipal }) {
+    if (!request.user) {
+      throw new UnauthorizedException('Bearer token required');
+    }
+    return request.user;
   }
 }

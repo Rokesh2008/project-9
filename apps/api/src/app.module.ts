@@ -1,43 +1,32 @@
 import { Module } from '@nestjs/common';
-import { AdminModule } from './admin/admin.module';
-import { AgentModule } from './agent/agent.module';
-import { AiModule } from './ai/ai.module';
-import { AllocationModule } from './allocation/allocation.module';
-import { UnifiedAuditModule } from './audit/unified-audit.module';
-import { AuthModule } from './auth/auth.module';
+import { APP_GUARD } from '@nestjs/core';
+import { AuthController } from './auth/auth.controller';
+import { AuthGuard } from './auth/auth.guard';
+import { AuthService } from './auth/auth.service';
+import { AccountsController } from './accounts/accounts.controller';
+import { AccountsService } from './accounts/accounts.service';
+import { AgentService } from './agent.service';
+import { AiService } from './ai.service';
+import { AllocationController } from './allocation/allocation.controller';
+import { AllocationService } from './allocation/allocation.service';
 import { PrismaService } from './common/prisma.service';
-import { SelectionCycleModule } from './cycles/selection-cycle.module';
-import { DomainsModule } from './domains/domains.module';
-import { HealthModule } from './health/health.module';
-import { IntegrationsModule } from './integrations/integrations.module';
+import { AgentController, DemoController, HealthController, IntegrationsController, ReportsController, StudentsController } from './controllers';
+import { DemoService } from './demo.service';
+import { IntegrationsService } from './integrations.service';
+import { IntelligenceService } from './intelligence.service';
 import { Member1Module } from './member1/member1.module';
-import { NotificationsModule } from './notifications/notifications.module';
-import { PreferencesModule } from './preferences/preferences.module';
-import { ReportsModule } from './reports/reports.module';
-import { StudentPortalModule } from './student-portal/student-portal.module';
-import { StudentsModule } from './students/students.module';
-import { WorkflowModule } from './workflow/workflow.module';
+import { OfficialIntegrationService } from './official-integration.service';
+import { OfficialReadService } from './official-read.service';
+import { ReportsService } from './reports.service';
+import { SelectionPipelineController } from './selection-pipeline.controller';
+import { SelectionPipelineService } from './selection-pipeline.service';
+import { Store } from './store';
+import { ProfilesController } from './profiles/profiles.controller';
+import { ProfilesService } from './profiles/profiles.service';
 
 @Module({
-  imports: [
-    Member1Module,
-    AllocationModule,
-    AuthModule,
-    StudentsModule,
-    WorkflowModule,
-    SelectionCycleModule,
-    DomainsModule,
-    PreferencesModule,
-    UnifiedAuditModule,
-    NotificationsModule,
-    HealthModule,
-    IntegrationsModule,
-    AiModule,
-    AgentModule,
-    ReportsModule,
-    StudentPortalModule,
-    AdminModule,
-  ],
-  providers: [PrismaService],
+  imports: [Member1Module],
+  controllers: [HealthController, AuthController, AccountsController, ProfilesController, IntegrationsController, StudentsController, DemoController, AgentController, ReportsController, AllocationController, SelectionPipelineController],
+  providers: [Store, IntegrationsService, OfficialIntegrationService, OfficialReadService, AiService, IntelligenceService, DemoService, AgentService, ReportsService, PrismaService, AllocationService, SelectionPipelineService, AuthService, AccountsService, ProfilesService, { provide: APP_GUARD, useClass: AuthGuard }],
 })
 export class AppModule {}

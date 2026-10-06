@@ -2,7 +2,7 @@
 // Types
 // ──────────────────────────────────────────
 
-export type Program = 'HOPE' | 'PEP' | 'NOT_ELIGIBLE';
+export type Program = 'HOPE' | 'PEP' | 'WAITLIST' | 'NOT_ELIGIBLE';
 
 export interface ClassificationInput {
   studentId: string;
@@ -29,6 +29,7 @@ export interface ClassificationCalculationResult {
   totalStudents: number;
   hopeClassified: number;
   pepClassified: number;
+  waitlistedCount: number;
   notEligibleCount: number;
 }
 
@@ -63,6 +64,7 @@ export function classifyStudents(
       totalStudents: 0,
       hopeClassified: 0,
       pepClassified: 0,
+      waitlistedCount: 0,
       notEligibleCount: 0,
     };
   }
@@ -75,14 +77,17 @@ export function classifyStudents(
   const classifiedStudents: ClassifiedStudent[] = sorted.map((s) => {
     let program: Program;
 
-    if (s.hopeEligible && hopeSlotsFilled < config.hopeCount) {
+    if (!s.hopeEligible && !s.pepEligible) {
+      program = 'NOT_ELIGIBLE';
+    } else if (s.hopeEligible && hopeSlotsFilled < config.hopeCount) {
       program = 'HOPE';
       hopeSlotsFilled++;
     } else if (s.pepEligible && pepSlotsFilled < config.pepCount) {
       program = 'PEP';
       pepSlotsFilled++;
     } else {
-      program = 'NOT_ELIGIBLE';
+      // Capacity exhaustion does not make an otherwise eligible student ineligible.
+      program = 'WAITLIST';
     }
 
     return {
@@ -94,6 +99,9 @@ export function classifyStudents(
     };
   });
 
+  const waitlistedCount = classifiedStudents.filter(
+    (s) => s.program === 'WAITLIST',
+  ).length;
   const notEligibleCount = classifiedStudents.filter(
     (s) => s.program === 'NOT_ELIGIBLE',
   ).length;
@@ -103,6 +111,7 @@ export function classifyStudents(
     totalStudents: students.length,
     hopeClassified: hopeSlotsFilled,
     pepClassified: pepSlotsFilled,
+    waitlistedCount,
     notEligibleCount,
   };
 }

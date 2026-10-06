@@ -4,10 +4,9 @@ import {
   Get,
   Param,
   Body,
+  Headers,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation } from '@nestjs/swagger';
-import { Roles } from '../../auth/decorators/roles.decorator';
-import { CurrentUser } from '../../auth/decorators/current-user.decorator';
+import { ApiTags, ApiOperation, ApiHeader } from '@nestjs/swagger';
 import { EligibilityService } from './eligibility.service';
 import {
   EvaluateEligibilityDto,
@@ -21,11 +20,12 @@ export class EligibilityController {
   constructor(private readonly eligibility: EligibilityService) {}
 
   @Post('evaluate')
-  @Roles('ADMIN', 'PLACEMENT_COORDINATOR')
   @ApiOperation({ summary: 'Evaluate eligibility for students in a cycle' })
+  @ApiHeader({ name: 'x-role', required: true })
+  @ApiHeader({ name: 'x-actor-id', required: true })
   async evaluate(
     @Body() dto: EvaluateEligibilityDto,
-    @CurrentUser('id') actorId: string,
+    @Headers('x-actor-id') actorId: string,
   ) {
     return this.eligibility.evaluate(
       dto.selectionCycleId,
@@ -36,11 +36,12 @@ export class EligibilityController {
   }
 
   @Post('rules')
-  @Roles('ADMIN', 'PLACEMENT_COORDINATOR')
   @ApiOperation({ summary: 'Create a new eligibility rule version' })
+  @ApiHeader({ name: 'x-role', required: true })
+  @ApiHeader({ name: 'x-actor-id', required: true })
   async createRuleVersion(
     @Body() dto: CreateRuleVersionDto,
-    @CurrentUser('id') actorId: string,
+    @Headers('x-actor-id') actorId: string,
   ) {
     return this.eligibility.createRuleVersion({
       selectionCycleId: dto.selectionCycleId,
@@ -52,11 +53,12 @@ export class EligibilityController {
   }
 
   @Post('rules/activate')
-  @Roles('ADMIN', 'PLACEMENT_COORDINATOR')
   @ApiOperation({ summary: 'Activate a rule version for a cycle' })
+  @ApiHeader({ name: 'x-role', required: true })
+  @ApiHeader({ name: 'x-actor-id', required: true })
   async activateRuleVersion(
     @Body() dto: ActivateRuleVersionDto,
-    @CurrentUser('id') actorId: string,
+    @Headers('x-actor-id') actorId: string,
   ) {
     return this.eligibility.activateRuleVersion({
       selectionCycleId: dto.selectionCycleId,
@@ -66,7 +68,6 @@ export class EligibilityController {
   }
 
   @Get('rules/:selectionCycleId')
-  @Roles('ADMIN', 'PLACEMENT_COORDINATOR', 'PEP_STAFF')
   @ApiOperation({ summary: 'Get all rule versions for a cycle' })
   async getRuleVersions(
     @Param('selectionCycleId') selectionCycleId: string,
@@ -75,14 +76,12 @@ export class EligibilityController {
   }
 
   @Get(':selectionCycleId')
-  @Roles('ADMIN', 'PLACEMENT_COORDINATOR', 'PEP_STAFF')
   @ApiOperation({ summary: 'Get eligibility results for a cycle' })
   async getByCycle(@Param('selectionCycleId') selectionCycleId: string) {
     return this.eligibility.getResultsByCycle(selectionCycleId);
   }
 
   @Get(':selectionCycleId/student/:studentId')
-  @Roles('ADMIN', 'PLACEMENT_COORDINATOR', 'PEP_STAFF')
   @ApiOperation({ summary: 'Get eligibility result for a specific student' })
   async getForStudent(
     @Param('selectionCycleId') selectionCycleId: string,

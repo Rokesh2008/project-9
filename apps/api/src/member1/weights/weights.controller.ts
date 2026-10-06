@@ -1,9 +1,7 @@
-import { Controller, Post, Get, Param, Body } from '@nestjs/common';
-import { ApiTags, ApiOperation } from '@nestjs/swagger';
-import { Roles } from '../../auth/decorators/roles.decorator';
-import { CurrentUser } from '../../auth/decorators/current-user.decorator';
+import { Body, Controller, ForbiddenException, Get, Headers, Param, Post } from '@nestjs/common';
+import { ApiHeader, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { WeightsService } from './weights.service';
-import { CreateWeightVersionDto, ActivateWeightVersionDto } from './weights.dto';
+import { ActivateWeightVersionDto, CreateWeightVersionDto } from './weights.dto';
 
 @ApiTags('Weights')
 @Controller('weights')
@@ -11,12 +9,15 @@ export class WeightsController {
   constructor(private readonly weights: WeightsService) {}
 
   @Post('version')
-  @Roles('ADMIN', 'PLACEMENT_COORDINATOR')
   @ApiOperation({ summary: 'Create a new weight version' })
+  @ApiHeader({ name: 'x-role', required: true })
+  @ApiHeader({ name: 'x-actor-id', required: true })
   async createVersion(
     @Body() dto: CreateWeightVersionDto,
-    @CurrentUser('id') actorId: string,
+    @Headers('x-role') role: string,
+    @Headers('x-actor-id') actorId: string,
   ) {
+    this.assertPrivileged(role);
     return this.weights.createVersion(
       dto.selectionCycleId,
       dto.weights,
@@ -26,44 +27,40 @@ export class WeightsController {
   }
 
   @Post('activate')
-  @Roles('ADMIN', 'PLACEMENT_COORDINATOR')
   @ApiOperation({ summary: 'Set the active weight version for a cycle' })
+  @ApiHeader({ name: 'x-role', required: true })
+  @ApiHeader({ name: 'x-actor-id', required: true })
   async activate(
     @Body() dto: ActivateWeightVersionDto,
-    @CurrentUser('id') actorId: string,
+    @Headers('x-role') role: string,
+    @Headers('x-actor-id') actorId: string,
   ) {
-    await this.weights.activate(
-      dto.selectionCycleId,
-      dto.weightVersionId,
-      actorId,
-    );
-    return { success: true };
+    this.assertPrivileged(role);
+    await this.weights.activate(dto.selectionCycleId, dto.weightVersionId, actorId);
+    return this.weights.getActiveVersion(dto.selectionCycleId);
   }
 
   @Get(':selectionCycleId/versions')
-  @Roles('ADMIN', 'PLACEMENT_COORDINATOR', 'PEP_STAFF')
   @ApiOperation({ summary: 'List all weight versions for a cycle' })
-  async getVersions(
-    @Param('selectionCycleId') selectionCycleId: string,
-  ) {
+  async getVersions(@Param('selectionCycleId') selectionCycleId: string) {
     return this.weights.getVersions(selectionCycleId);
   }
 
   @Get(':selectionCycleId/active')
-  @Roles('ADMIN', 'PLACEMENT_COORDINATOR', 'PEP_STAFF')
   @ApiOperation({ summary: 'Get the active weight version for a cycle' })
-  async getActiveVersion(
-    @Param('selectionCycleId') selectionCycleId: string,
-  ) {
+  async getActiveVersion(@Param('selectionCycleId') selectionCycleId: string) {
     return this.weights.getActiveVersion(selectionCycleId);
   }
 
   @Get('version/:weightVersionId')
-  @Roles('ADMIN', 'PLACEMENT_COORDINATOR', 'PEP_STAFF')
   @ApiOperation({ summary: 'Get a specific weight version with its parameters' })
-  async getVersion(
-    @Param('weightVersionId') weightVersionId: string,
-  ) {
+  async getVersion(@Param('weightVersionId') weightVersionId: string) {
     return this.weights.getVersion(weightVersionId);
+  }
+
+  private assertPrivileged(role: string) {
+    if (!['ADMIN', 'COORDINATOR'].includes(role)) {
+      throw new ForbiddenException('Admin or coordinator role required');
+    }
   }
 }

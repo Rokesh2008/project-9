@@ -102,7 +102,7 @@ export class SelectionResultService {
     return classifications.map((c) => ({
       studentId: c.studentId,
       selectionCycleId,
-      selected: c.program !== 'NOT_ELIGIBLE',
+      selected: c.program === 'HOPE' || c.program === 'PEP',
       programCode: c.program,
       rank: c.rank,
       score: scoreMap.get(c.studentId),
@@ -139,7 +139,7 @@ export class SelectionResultService {
     return {
       studentId: classification.studentId,
       selectionCycleId,
-      selected: classification.program !== 'NOT_ELIGIBLE',
+      selected: classification.program === 'HOPE' || classification.program === 'PEP',
       programCode: classification.program,
       rank: classification.rank,
       score: ranking?.totalScore,
@@ -183,7 +183,7 @@ export class SelectionResultService {
       return {
         studentId: e.studentId,
         selectionCycleId,
-        selected: program !== 'NOT_ELIGIBLE' && program !== 'UNCLASSIFIED',
+        selected: program === 'HOPE' || program === 'PEP',
         programCode: program,
         rank: e.rank,
         score: e.totalScore,
@@ -222,7 +222,7 @@ export class SelectionResultService {
     return {
       studentId: entry.studentId,
       selectionCycleId,
-      selected: program !== 'NOT_ELIGIBLE' && program !== 'UNCLASSIFIED',
+      selected: program === 'HOPE' || program === 'PEP',
       programCode: program,
       rank: entry.rank,
       score: entry.totalScore,

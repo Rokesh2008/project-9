@@ -5,7 +5,6 @@ services:
       POSTGRES_USER: project9
       POSTGRES_PASSWORD: project9
       POSTGRES_DB: project9
-    ports: ["5432:5432"]
     volumes: ["project9_pg:/var/lib/postgresql/data"]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U project9"]
@@ -29,9 +28,20 @@ services:
       AI_SERVICE_URL: http://ai:8000
       PORT: 3000
       WEB_ORIGIN: http://localhost:5173
-      JWT_SECRET: project9-docker-dev-secret
-      DEMO_MODE: "true"
+      PERSISTENCE_DRIVER: postgres
+      OFFICIAL_PROJECTION: "true"
+      DEMO_MODE: "${DEMO_MODE:-false}"
+      AUTH_REQUIRED: "${AUTH_REQUIRED:-false}"
+      AUTH_TOKEN_SECRET: "${AUTH_TOKEN_SECRET:-}"
+      ADMIN_BOOTSTRAP_KEY: "${ADMIN_BOOTSTRAP_KEY:-}"
+      INTEGRATION_API_KEY: "${INTEGRATION_API_KEY:-}"
+      ENABLE_FREEZE_SCHEDULER: "${ENABLE_FREEZE_SCHEDULER:-true}"
     ports: ["3000:3000"]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
     depends_on:
       postgres: { condition: service_healthy }
       ai: { condition: service_healthy }
@@ -39,9 +49,15 @@ services:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
-    environment:
-      VITE_API_URL: http://localhost:3000/api
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:3000/api}
     ports: ["5173:80"]
-    depends_on: [api]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost/ >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      api: { condition: service_healthy }
 volumes:
   project9_pg:

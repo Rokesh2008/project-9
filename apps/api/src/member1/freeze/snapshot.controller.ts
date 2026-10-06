@@ -1,11 +1,9 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
-import { Roles } from '../../auth/decorators/roles.decorator';
 import { FreezeService } from './freeze.service';
 import { SnapshotQueryDto } from './freeze.dto';
 
 @ApiTags('Snapshot')
-@Roles('ADMIN', 'PLACEMENT_COORDINATOR', 'PEP_STAFF')
 @Controller('snapshot')
 export class SnapshotController {
   constructor(private readonly freeze: FreezeService) {}

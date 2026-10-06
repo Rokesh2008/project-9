@@ -178,6 +178,7 @@ export class ClassificationService {
           totalStudents: 0,
           hopeClassified: 0,
           pepClassified: 0,
+          waitlistedCount: 0,
           notEligibleCount: 0,
         },
       });
@@ -241,6 +242,7 @@ export class ClassificationService {
         totalStudents: result.totalStudents,
         hopeClassified: result.hopeClassified,
         pepClassified: result.pepClassified,
+        waitlistedCount: result.waitlistedCount,
         notEligibleCount: result.notEligibleCount,
         configuredHopeCount: config.hopeCount,
         configuredPepCount: config.pepCount,
@@ -322,6 +324,7 @@ export class ClassificationService {
           totalStudents: 0,
           hopeClassified: 0,
           pepClassified: 0,
+          waitlistedCount: 0,
           notEligibleCount: 0,
         },
       });
@@ -381,6 +384,7 @@ export class ClassificationService {
         totalStudents: result.totalStudents,
         hopeClassified: result.hopeClassified,
         pepClassified: result.pepClassified,
+        waitlistedCount: result.waitlistedCount,
         notEligibleCount: result.notEligibleCount,
         configuredHopeCount: config.hopeCount,
         configuredPepCount: config.pepCount,

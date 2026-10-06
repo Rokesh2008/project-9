@@ -2,16 +2,17 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   Inject,
   Param,
   Post,
   Query,
+  Req,
 } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
-import { Roles } from '../auth/decorators/roles.decorator';
-import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ApiHeader, ApiTags } from '@nestjs/swagger';
 import { AllocationService } from './allocation.service';
 import { ApproveRejectDto, FreezeDto, GenerateAllocationsDto } from './allocation.dto';
+import { AuthPrincipal } from '../auth/auth.service';
 
 @ApiTags('Allocations (Member 2)')
 @Controller('allocations')
@@ -19,52 +20,55 @@ export class AllocationController {
   constructor(@Inject(AllocationService) private readonly service: AllocationService) {}
 
   @Post('generate')
-  @Roles('ADMIN', 'PLACEMENT_COORDINATOR')
-  generate(@Body() body: GenerateAllocationsDto, @CurrentUser('id') actorId: string) {
-    return this.service.generate(body.selectionCycleId, actorId);
+  @ApiHeader({ name: 'x-actor-id', required: true })
+  generate(@Body() body: GenerateAllocationsDto, @Headers('x-actor-id') actorId: string) {
+    return this.service.generate(body.selectionCycleId, actorId ?? 'system');
   }
 
   @Get()
-  @Roles('ADMIN', 'PLACEMENT_COORDINATOR', 'PEP_STAFF')
-  findAll(@Query('selectionCycleId') selectionCycleId?: string) {
-    return this.service.findAll(selectionCycleId);
+  findAll(@Query('selectionCycleId') selectionCycleId?: string, @Req() request?: { user?: AuthPrincipal }) {
+    return this.service.findAll(selectionCycleId, request?.user);
   }
 
   @Get(':studentId')
-  @Roles('ADMIN', 'PLACEMENT_COORDINATOR', 'PEP_STAFF')
-  findByStudent(@Param('studentId') studentId: string) {
-    return this.service.findByStudent(studentId);
+  findByStudent(@Param('studentId') studentId: string, @Req() request: { user?: AuthPrincipal }) {
+    return this.service.findByStudent(studentId, request.user);
   }
 
   @Post(':id/approve')
-  @Roles('ADMIN')
+  @ApiHeader({ name: 'x-role', required: true })
+  @ApiHeader({ name: 'x-actor-id', required: true })
   approve(
     @Param('id') id: string,
     @Body() body: ApproveRejectDto,
-    @CurrentUser('id') actorId: string,
-    @CurrentUser('role') role: string,
+    @Headers('x-role') role: string,
+    @Headers('x-actor-id') headerActorId: string,
+    @Req() request: { user?: AuthPrincipal },
   ) {
-    return this.service.approve(id, actorId, role, body.reason);
+    return this.service.approve(id, headerActorId || body.actorId, role, body.reason, request.user?.facultyDomainId);
   }
 
   @Post(':id/reject')
-  @Roles('ADMIN')
+  @ApiHeader({ name: 'x-role', required: true })
+  @ApiHeader({ name: 'x-actor-id', required: true })
   reject(
     @Param('id') id: string,
     @Body() body: ApproveRejectDto,
-    @CurrentUser('id') actorId: string,
-    @CurrentUser('role') role: string,
+    @Headers('x-role') role: string,
+    @Headers('x-actor-id') headerActorId: string,
+    @Req() request: { user?: AuthPrincipal },
   ) {
-    return this.service.reject(id, actorId, role, body.reason);
+    return this.service.reject(id, headerActorId || body.actorId, role, body.reason, request.user?.facultyDomainId);
   }
 
   @Post(':id/freeze')
-  @Roles('ADMIN')
+  @ApiHeader({ name: 'x-role', required: true })
   freeze(
     @Param('id') id: string,
-    @CurrentUser('id') actorId: string,
-    @CurrentUser('role') role: string,
+    @Body() body: FreezeDto,
+    @Headers('x-role') role: string,
+    @Headers('x-actor-id') headerActorId: string,
   ) {
-    return this.service.freeze(id, actorId, role);
+    return this.service.freeze(id, headerActorId || body.actorId, role);
   }
 }

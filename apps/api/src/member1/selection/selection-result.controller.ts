@@ -1,10 +1,8 @@
 import { Controller, Get, Param } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
-import { Roles } from '../../auth/decorators/roles.decorator';
 import { SelectionResultService } from './selection-result.service';
 
 @ApiTags('Selection')
-@Roles('ADMIN', 'PLACEMENT_COORDINATOR', 'PEP_STAFF')
 @Controller('selection')
 export class SelectionResultController {
   constructor(private readonly selectionResult: SelectionResultService) {}

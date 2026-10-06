@@ -1,7 +1,5 @@
-import { Controller, Post, Get, Patch, Param, Body } from '@nestjs/common';
-import { ApiTags, ApiOperation } from '@nestjs/swagger';
-import { Roles } from '../../auth/decorators/roles.decorator';
-import { CurrentUser } from '../../auth/decorators/current-user.decorator';
+import { Body, Controller, ForbiddenException, Get, Headers, Param, Patch, Post } from '@nestjs/common';
+import { ApiHeader, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CycleService } from './cycle.service';
 import { CreateCycleConfigDto, UpdateCycleConfigDto } from './cycle.dto';
 
@@ -11,12 +9,15 @@ export class CycleController {
   constructor(private readonly cycle: CycleService) {}
 
   @Post('config')
-  @Roles('ADMIN')
   @ApiOperation({ summary: 'Create Member 1 config for a selection cycle' })
+  @ApiHeader({ name: 'x-role', required: true })
+  @ApiHeader({ name: 'x-actor-id', required: true })
   async createConfig(
     @Body() dto: CreateCycleConfigDto,
-    @CurrentUser('id') actorId: string,
+    @Headers('x-role') role: string,
+    @Headers('x-actor-id') actorId: string,
   ) {
+    this.assertPrivileged(role);
     return this.cycle.createConfig(
       dto.selectionCycleId,
       dto.hopeCount,
@@ -26,23 +27,29 @@ export class CycleController {
   }
 
   @Patch('config/:selectionCycleId')
-  @Roles('ADMIN')
   @ApiOperation({ summary: 'Update cycle config (HOPE/PEP counts, active versions)' })
+  @ApiHeader({ name: 'x-role', required: true })
+  @ApiHeader({ name: 'x-actor-id', required: true })
   async updateConfig(
     @Param('selectionCycleId') selectionCycleId: string,
     @Body() dto: UpdateCycleConfigDto,
-    @CurrentUser('id') actorId: string,
+    @Headers('x-role') role: string,
+    @Headers('x-actor-id') actorId: string,
   ) {
+    this.assertPrivileged(role);
     await this.cycle.updateConfig(selectionCycleId, dto, actorId);
-    return { success: true };
+    return this.cycle.getConfig(selectionCycleId);
   }
 
   @Get('config/:selectionCycleId')
-  @Roles('ADMIN', 'PLACEMENT_COORDINATOR', 'PEP_STAFF')
   @ApiOperation({ summary: 'Get cycle config' })
-  async getConfig(
-    @Param('selectionCycleId') selectionCycleId: string,
-  ) {
+  async getConfig(@Param('selectionCycleId') selectionCycleId: string) {
     return this.cycle.getConfig(selectionCycleId);
+  }
+
+  private assertPrivileged(role: string) {
+    if (!['ADMIN', 'COORDINATOR'].includes(role)) {
+      throw new ForbiddenException('Admin or coordinator role required');
+    }
   }
 }

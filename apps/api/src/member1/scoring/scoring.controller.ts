@@ -5,12 +5,11 @@ import {
   Param,
   Body,
   Query,
+  Headers,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation } from '@nestjs/swagger';
-import { Roles } from '../../auth/decorators/roles.decorator';
-import { CurrentUser } from '../../auth/decorators/current-user.decorator';
+import { ApiTags, ApiOperation, ApiHeader } from '@nestjs/swagger';
 import { ScoringService } from './scoring.service';
-import { CalculateStudentScoresDto, CalculateScoresDto } from './scoring.dto';
+import { CalculateStudentScoresDto } from './scoring.dto';
 
 @ApiTags('Scoring')
 @Controller('scoring')
@@ -18,13 +17,14 @@ export class ScoringController {
   constructor(private readonly scoring: ScoringService) {}
 
   @Post('calculate')
-  @Roles('ADMIN', 'PLACEMENT_COORDINATOR')
   @ApiOperation({
     summary: 'Calculate weighted scores for a student in a cycle',
   })
+  @ApiHeader({ name: 'x-role', required: true })
+  @ApiHeader({ name: 'x-actor-id', required: true })
   async calculateStudentScores(
     @Body() dto: CalculateStudentScoresDto,
-    @CurrentUser('id') actorId: string,
+    @Headers('x-actor-id') actorId: string,
   ) {
     return this.scoring.calculateStudentScores(
       dto.selectionCycleId,
@@ -34,24 +34,7 @@ export class ScoringController {
     );
   }
 
-  @Post('calculate-batch')
-  @Roles('ADMIN', 'PLACEMENT_COORDINATOR')
-  @ApiOperation({
-    summary: 'Calculate weighted scores for all eligible students in a cycle using assessment data',
-  })
-  async calculateBatch(
-    @Body() dto: CalculateScoresDto,
-    @CurrentUser('id') actorId: string,
-  ) {
-    return this.scoring.calculateBatch(
-      dto.selectionCycleId,
-      actorId,
-      dto.weightVersionId,
-    );
-  }
-
   @Get(':selectionCycleId/student/:studentId')
-  @Roles('ADMIN', 'PLACEMENT_COORDINATOR', 'PEP_STAFF')
   @ApiOperation({
     summary: 'Retrieve calculated scores for a student in a cycle',
   })

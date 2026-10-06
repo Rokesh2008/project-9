@@ -89,15 +89,16 @@ describe('FreezeService', () => {
 
   describe('schedule', () => {
     it('should create a freeze schedule', async () => {
+      const scheduledAt = new Date(Date.now() + 86_400_000);
       prisma.selectionCycle.findUnique.mockResolvedValue({ id: 'cycle-1' });
       prisma.freezeSchedule.findFirst.mockResolvedValue(null);
       prisma.freezeSchedule.create.mockResolvedValue({
         id: 'fs-1',
-        scheduledAt: new Date('2026-10-01'),
+        scheduledAt,
         status: 'SCHEDULED',
       });
 
-      const result = await service.schedule('cycle-1', new Date('2026-10-01'), 'admin-1');
+      const result = await service.schedule('cycle-1', scheduledAt, 'admin-1');
       expect(result.id).toBe('fs-1');
       expect(result.status).toBe('SCHEDULED');
       expect(mockAudit.log).toHaveBeenCalledWith(
