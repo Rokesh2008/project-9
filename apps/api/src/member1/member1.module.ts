@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { PrismaService } from '../common/prisma.service';
+import { PrismaModule } from '../common/prisma.module';
 
 import { AuditService } from './audit/audit.service';
 import { EligibilityService } from './eligibility/eligibility.service';
@@ -21,9 +21,13 @@ import { CycleService } from './cycle/cycle.service';
 import { CycleController } from './cycle/cycle.controller';
 import { SelectionResultService } from './selection/selection-result.service';
 import { SelectionResultController } from './selection/selection-result.controller';
+import { SelectionRulesService } from '../selection-rules/selection-rules.service';
+import { SelectionRulesController } from '../selection-rules/selection-rules.controller';
 
 @Module({
+  imports: [PrismaModule],
   controllers: [
+    SelectionRulesController,
     EligibilityController,
     ScoringController,
     RankingController,
@@ -35,7 +39,7 @@ import { SelectionResultController } from './selection/selection-result.controll
     SelectionResultController,
   ],
   providers: [
-    PrismaService,
+    SelectionRulesService,
     AuditService,
     EligibilityService,
     ScoringService,
@@ -49,6 +53,7 @@ import { SelectionResultController } from './selection/selection-result.controll
     SelectionResultService,
   ],
   exports: [
+    SelectionRulesService,
     EligibilityService,
     ScoringService,
     RankingService,

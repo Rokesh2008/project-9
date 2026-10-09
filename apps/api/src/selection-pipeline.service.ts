@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { PrismaService } from './common/prisma.service';
 import { ClassificationService } from './member1/classification/classification.service';
@@ -9,6 +10,10 @@ import { EligibilityService } from './member1/eligibility/eligibility.service';
 import { RankingService } from './member1/ranking/ranking.service';
 import { ScoringService } from './member1/scoring/scoring.service';
 import { WeightsService } from './member1/weights/weights.service';
+import { SelectionRulesService } from './selection-rules/selection-rules.service';
+import { SELECTION_DEMO_CODE, SELECTION_DEMO_PREFIX } from './selection-demo.fixture';
+import { runBulkSelection } from './selection-pipeline.bulk';
+import type { SelectionCycle } from '@prisma/client';
 
 @Injectable()
 export class SelectionPipelineService {
@@ -19,9 +24,51 @@ export class SelectionPipelineService {
     private readonly eligibility: EligibilityService,
     private readonly ranking: RankingService,
     private readonly classification: ClassificationService,
+    @Optional() private readonly customRules?: SelectionRulesService,
   ) {}
 
+  private async assertDemoCycle(id: string) {
+    const rows = await this.prisma.$queryRaw<Array<{cycle:SelectionCycle;members:Array<{studentId:string;student:{studentId:string;name:string;attendancePercent:number|null;cycleStatuses:Array<{selectionCycleId:string}>}}>;}>>`
+      SELECT to_jsonb(c) AS cycle,
+        COALESCE((SELECT jsonb_agg(jsonb_build_object('studentId',m."studentId",'student',jsonb_build_object('studentId',s."studentId",'name',s.name,'attendancePercent',s."attendancePercent",'cycleStatuses',
+          (SELECT jsonb_agg(jsonb_build_object('selectionCycleId',other."selectionCycleId")) FROM "StudentCycleStatus" other WHERE other."studentId"=s.id))))
+        FROM "StudentCycleStatus" m JOIN "Student" s ON s.id=m."studentId" WHERE m."selectionCycleId"=c.id),'[]'::jsonb) AS members
+      FROM "SelectionCycle" c WHERE c.id=${id}
+    `;
+    const cycle = rows[0]?.cycle;
+    if (!cycle || cycle.code !== SELECTION_DEMO_CODE) throw new BadRequestException('Only the isolated synthetic demo cycle is allowed');
+    const members = rows[0].members;
+    if (members.length !== 6 || members.some(m => !m.student.studentId.startsWith(SELECTION_DEMO_PREFIX) || m.student.cycleStatuses.some(s => s.selectionCycleId !== id))) throw new BadRequestException('Demo isolation check failed');
+    return { cycle, members };
+  }
+
+  async runDemo(id: string, actor: string) {
+    await this.assertDemoCycle(id);
+    return this.run(id, actor);
+  }
+
+  async demoStatus(id: string) {
+    const { cycle, members } = await this.assertDemoCycle(id);
+    const [scores, rankings, eligibility, classifications] = await Promise.all([
+      this.prisma.assessmentResult.findMany({ where: { studentId: { in: members.map(m => m.studentId) } } }),
+      this.prisma.studentRanking.findMany({ where: { selectionCycleId: id } }),
+      this.prisma.eligibilityResult.findMany({ where: { selectionCycleId: id } }),
+      this.prisma.hopePepClassification.findMany({ where: { selectionCycleId: id } }),
+    ]);
+    return { cycle, students: members.map(m => {
+      const rank = rankings.find(r => r.studentId === m.studentId);
+      const eligible = eligibility.find(e => e.studentId === m.studentId);
+      const classification = classifications.find(c => c.studentId === m.studentId);
+      return { studentId: m.student.studentId, name: m.student.name, attendance: m.student.attendancePercent, coding: scores.find(s => s.studentId === m.studentId && s.assessmentType === 'CODING')?.score, aptitude: scores.find(s => s.studentId === m.studentId && s.assessmentType === 'APTITUDE')?.score, totalScore: rank?.totalScore ?? null, rank: rank?.rank ?? null, baselineEligible: eligible?.isEligible ?? null, baselineFailures: eligible?.failedRules ?? null, program: classification?.program ?? 'NOT_RUN', customEligibility: classification?.customEligibility ?? null, evaluatedAt: classification?.classifiedAt ?? null };
+    }).sort((a,b) => a.studentId.localeCompare(b.studentId)) };
+  }
+
   async run(selectionCycleId: string, actorId: string) {
+    return runBulkSelection(this.prisma, selectionCycleId, actorId, !!this.customRules);
+  }
+
+  /** Reference implementation retained for regression comparison, never routed. */
+  private async runLegacy(selectionCycleId: string, actorId: string) {
     const cycle = await this.prisma.selectionCycle.findUnique({
       where: { id: selectionCycleId },
     });
@@ -81,6 +128,8 @@ export class SelectionPipelineService {
       selectionCycleId,
       undefined,
       actorId,
+      undefined,
+      cycleStudents.map(item => item.studentId),
     );
     const ranking = await this.ranking.calculate(
       selectionCycleId,
@@ -208,9 +257,10 @@ export class SelectionPipelineService {
       .sort((a, b) => b.assessmentDate.getTime() - a.assessmentDate.getTime())[0]
       ?.score ?? null;
 
+    const customContext = this.customRules ? await this.customRules.readinessContext(studentId) : {};
     return parameterKeys.map((parameterKey) => ({
       parameterKey,
-      rawScore: this.resolveRawScore(parameterKey, {
+      rawScore: (Object.prototype.hasOwnProperty.call(customContext, parameterKey) ? customContext[parameterKey] : this.resolveRawScore(parameterKey, {
         coding: highest('CODING'),
         aptitude: highest('APTITUDE'),
         communication: highest('COMMUNICATION'),
@@ -219,7 +269,7 @@ export class SelectionPipelineService {
         attendance: student.attendancePercent,
         readiness,
         certificateCount: student.credentials.length,
-      }),
+      })) as number | null,
     }));
   }
 

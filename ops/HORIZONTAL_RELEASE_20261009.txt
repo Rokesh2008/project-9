@@ -1,0 +1,73 @@
+PROJECT 9 HORIZONTAL-STATE RELEASE — 2026-10-09
+
+Production API revision: project9-api-00028-yut (100% traffic)
+Image digest: sha256:432484e556de8ac68b689cff58dcc40a5437f8033e5584e17814ec3b3ec900fd
+Service and revision maximum: 2; automatic scaling; minimum: 0
+Request concurrency: 20 per API instance; session affinity disabled
+One Prisma pool per instance: 10 connections (20 serving API connections maximum,
+plus deployment/migration connections). Database secret reference: version 5.
+HORIZONTAL_STATE=true; MAINTENANCE_WRITES=false; CPU throttling remains enabled.
+The existing web and private AI instance caps are unchanged at one each.
+
+Cutover:
+- Additive migration 20261009000000_horizontal_state creates shared entity state,
+  the pending-recommendation uniqueness constraint and distributed rate windows.
+- Prisma schema-engine connection failed without applying it. The reviewed SQL
+  and its exact checksum/history were applied together through the working
+  Prisma runtime driver using scripts/apply-horizontal-schema.cjs.
+- A write-paused revision received all traffic. The old tagged snapshot writer
+  was removed and drained for more than its 300-second request timeout.
+- The source snapshot remained unchanged during the drain (source SHA256:
+  0b315c74f7f8d62be742a863a3d28aabbc5b70fef619c4dffbc13a0bcc6dc3fd).
+- 35 compatibility/advisory/history entities plus the cutover marker were copied
+  atomically; counts were checked. RuntimeState/main was preserved, with an
+  additional horizontal-cutover-backup-20261009 record for recovery.
+- No real student account, assessment, selection or allocation was recalculated
+  by migration. Student count: 4,915; account count: 4,906. Advisory recommendations
+  and integration history remained visible (7 and 1 respectively).
+- No old tagged snapshot writer remains accessible via deployment tags.
+
+Verification:
+- Typechecking and API build passed; 756 tests across 45 suites passed.
+- Nine multi-process tests exercise independent API OS processes: durable state,
+  same-entity conflicts, combined rate limits, nested transaction rollback,
+  import idempotency, selection, single approval/capacity claim and single freeze.
+- Isolated cutover/rollback rehearsal preserved backup, new writes and array order.
+- Production health returned 200; unauthenticated profiles returned 401.
+- Synthetic six-student selection completed in 9,779ms: 4 selected, 1 waitlisted,
+  1 ineligible. Hashes of nine real-cycle tables were unchanged before/after.
+- Initial 100-directory-read burst: 54 responses within the client's 45-second
+  deadline and 46 client timeouts. Server logs eventually reported 100 HTTP 200s.
+- After tuning the pool and concurrency, a second burst beginning at
+  2026-10-09T04:04:19.390Z returned 100/100 HTTP 200 responses. Cloud Run logs
+  confirmed requests served by TWO different instances of the new revision.
+  Client p50: 23,313ms; p95: 37,531ms; maximum: 38,368ms.
+  Server-log p95: about 9,424ms; client timing includes routing/queue/network time.
+- Final read-only verification using the runtime Secret Manager database
+  configuration again confirmed 4,915 students, 4,906 accounts, all seven
+  recommendations and the existing integration log, health 200, unauthorized
+  profiles 401, and unchanged hashes for all nine real-cycle tables.
+  A separate direct verification connection failed to initialize; the deployed
+  runtime configuration was checked successfully instead. Ordinary staff reads
+  in this final check took approximately 4.3–6.6 seconds, so latency is still
+  explicitly a performance limitation, not an achieved low-latency target.
+
+Important boundaries:
+- Horizontal write safety is enabled, not unlimited capacity or a low-latency
+  SLA. Burst latency remains high with the shared cross-region database, bounded
+  pools and scale-to-zero routing/cold-start behaviour. Do not conceal this with
+  a claim that 100 users are consistently fast or that all scalability work is done.
+- Administrative operations are synchronous with bounded transactions. Durable
+  background job delivery/retries are not implemented. In-process schedulers are
+  disabled and cannot substitute for externally delivered scheduled work.
+- Further high-volume improvements include direct/paginated advisory-history
+  repositories, chunked durable jobs and measured database/topology tuning.
+- Database HA/PITR, WAF, sustained-load testing and production alerting remain
+  operational work requiring an agreed scope/budget. Max-instance settings do
+  not guarantee free hosting or provide a hard monetary cap.
+- Never roll back directly to project9-api-00020-jet or another snapshot writer
+  after cutover. Pause/drain writes and export current shared state first, or use
+  a horizontal-compatible revision. See docs/HORIZONTAL_SCALING.md.
+
+Source changes have NOT been committed/pushed by this task. Existing unrelated
+workspace changes were preserved. Production uses the allowlisted built image.

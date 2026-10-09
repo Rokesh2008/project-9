@@ -9,6 +9,7 @@ export interface ClassificationInput {
   rank: number;
   hopeEligible: boolean;
   pepEligible: boolean;
+  customEligibility?: unknown;
 }
 
 export interface ClassificationConfig {
@@ -22,6 +23,7 @@ export interface ClassifiedStudent {
   program: Program;
   hopeEligible: boolean;
   pepEligible: boolean;
+  customEligibility?: unknown;
 }
 
 export interface ClassificationCalculationResult {
@@ -96,6 +98,7 @@ export function classifyStudents(
       program,
       hopeEligible: s.hopeEligible,
       pepEligible: s.pepEligible,
+      ...(s.customEligibility ? {customEligibility:s.customEligibility} : {}),
     };
   });
 

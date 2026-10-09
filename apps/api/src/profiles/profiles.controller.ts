@@ -10,8 +10,9 @@ export class ProfilesController {
     @Req() request: { user: AuthPrincipal },
     @Query('q') query?: string,
     @Query('page') page?: string,
+    @Query('sort') sort?: string,
   ) {
-    return this.profiles.listForStaff(request.user, query, Number(page ?? 1));
+    return this.profiles.listForStaff(request.user, query, Number(page ?? 1), sort);
   }
 
   @Get('me') mine(@Req() request: { user: AuthPrincipal }) {

@@ -1,14 +1,43 @@
-import { ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException, Optional, UnauthorizedException } from '@nestjs/common';
 import { AuthPrincipal } from '../auth/auth.service';
 import { PrismaService } from '../common/prisma.service';
+import { ReadinessService } from '../readiness/readiness.service';
+import { Prisma } from '@prisma/client';
 
-type Failure = { field?: string; actual?: unknown; expected?: unknown; message?: string };
+type Failure = { field?: string; operator?: string; actual?: unknown; expected?: unknown; message?: string };
 
 @Injectable()
 export class ProfilesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, @Optional() private readonly readiness?: ReadinessService) {}
 
-  async listForStaff(principal: AuthPrincipal, search = '', page = 1) {
+  async listForStaff(principal: AuthPrincipal, search = '', page = 1, sort = '') {
+    this.assertStaff(principal);
+    const query = search.trim().slice(0, 100);
+    const safePage = Number.isInteger(page) && page > 0 ? page : 1;
+    const pageSize = 25;
+    // One joined page query replaces the ORM's per-relation fetches. The
+    // count runs concurrently; no assessment history or password is returned.
+    const filter = Prisma.sql`s."isActive" = true AND (${query} = '' OR s."studentId" ILIKE ${`%${query}%`} OR s."registerNumber" ILIKE ${`%${query}%`} OR s."name" ILIKE ${`%${query}%`} OR u."loginIdentifier" ILIKE ${`%${query}%`})`;
+    const order = sort==='readiness_asc' ? Prisma.sql`r."readinessScore" ASC NULLS LAST, s."studentId" ASC` : sort==='readiness_desc' ? Prisma.sql`r."readinessScore" DESC NULLS LAST, s."studentId" ASC` : Prisma.sql`s."studentId" ASC`;
+    const [counts, students] = await Promise.all([
+      this.prisma.$queryRaw<Array<{total:bigint}>>(Prisma.sql`SELECT count(*) AS total FROM "Student" s LEFT JOIN "User" u ON u."studentId"=s.id WHERE ${filter}`),
+      this.prisma.$queryRaw<Array<{studentId:string;registerNumber:string|null;name:string;department:string;departmentName:string;batch:string;rollNumber:string|null;readinessScore:number|null;verificationStatus:string;trainingGroup:string|null;allocationStatus:string}>>(Prisma.sql`
+        SELECT s."studentId", s."registerNumber", s.name, d.code AS department, d.name AS "departmentName", b."batchIdentifier" AS batch,
+          u."loginIdentifier" AS "rollNumber", r."readinessScore", COALESCE(r."verificationStatus",'PENDING') AS "verificationStatus",
+          COALESCE(a."domainName", ra."trainingGroup") AS "trainingGroup",
+          COALESCE(a.status::text,CASE WHEN ra.id IS NOT NULL THEN 'EXISTING_ALLOCATION' ELSE 'NOT_ALLOCATED' END) AS "allocationStatus"
+        FROM "Student" s JOIN "Batch" b ON b.id=s."batchId" JOIN "Department" d ON d.id=b."departmentId"
+        LEFT JOIN "User" u ON u."studentId"=s.id LEFT JOIN "RosterAllocation" ra ON ra."studentId"=s.id
+        LEFT JOIN LATERAL (SELECT "readinessScore","verificationStatus" FROM "ReadinessAssessment" WHERE "studentId"=s.id ORDER BY "assessedAt" DESC,"createdAt" DESC,id DESC LIMIT 1) r ON true
+        LEFT JOIN LATERAL (SELECT a.status,d.name AS "domainName" FROM "Allocation" a LEFT JOIN "Domain" d ON d.id=a."domainId" WHERE a."studentId"=s.id ORDER BY a."createdAt" DESC LIMIT 1) a ON true
+        WHERE ${filter} ORDER BY ${order} LIMIT ${pageSize} OFFSET ${(safePage-1)*pageSize}
+      `),
+    ]);
+    return {total:Number(counts[0].total),page:safePage,pageSize,students};
+  }
+
+  /** ORM reference retained for equivalence tests; not used by HTTP routes. */
+  private async listForStaffLegacy(principal: AuthPrincipal, search = '', page = 1, sort = '') {
     this.assertStaff(principal);
     const query = search.trim().slice(0, 100);
     const safePage = Number.isInteger(page) && page > 0 ? page : 1;
@@ -20,25 +49,59 @@ export class ProfilesService {
           { studentId: { contains: query, mode: 'insensitive' as const } },
           { registerNumber: { contains: query, mode: 'insensitive' as const } },
           { name: { contains: query, mode: 'insensitive' as const } },
+          { user: { is: { loginIdentifier: { contains: query, mode: 'insensitive' as const } } } },
         ],
       } : {}),
     };
+    const readinessSort = sort === 'readiness_asc' || sort === 'readiness_desc';
+    // Sort the complete matching population by each student's latest assessment
+    // before pagination. Missing scores always follow numeric scores (including 0).
+    const orderedIds = readinessSort ? await this.prisma.$queryRaw<{ id: string }[]>(Prisma.sql`
+      SELECT s."id" FROM "Student" s
+      LEFT JOIN "User" u ON u."studentId" = s."id"
+      LEFT JOIN LATERAL (
+        SELECT r."readinessScore" FROM "ReadinessAssessment" r
+        WHERE r."studentId" = s."id"
+        ORDER BY r."assessedAt" DESC, r."createdAt" DESC, r."id" DESC LIMIT 1
+      ) latest ON true
+      WHERE s."isActive" = true AND (${query} = '' OR
+        s."studentId" ILIKE ${`%${query}%`} OR
+        s."registerNumber" ILIKE ${`%${query}%`} OR
+        s."name" ILIKE ${`%${query}%`} OR
+        u."loginIdentifier" ILIKE ${`%${query}%`})
+      ORDER BY latest."readinessScore" ${sort === 'readiness_asc' ? Prisma.sql`ASC` : Prisma.sql`DESC`} NULLS LAST, s."studentId" ASC
+      LIMIT ${pageSize} OFFSET ${(safePage - 1) * pageSize}
+    `) : null;
     const [total, students] = await Promise.all([
       this.prisma.student.count({ where }),
       this.prisma.student.findMany({
-        where,
+        where: orderedIds ? { ...where, id: { in: orderedIds.map(row => row.id) } } : where,
         select: {
-          studentId: true, registerNumber: true, name: true,
-          batch: { select: { department: { select: { code: true } } } },
+          id: true, studentId: true, registerNumber: true, name: true,
+          batch: { select: { batchIdentifier: true, department: { select: { code: true, name: true } } } },
+          user: { select: { loginIdentifier: true } },
+          rosterAllocation: { select: { trainingGroup: true } },
+          readinessAssessments: { orderBy: [{ assessedAt: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }], take: 1, select: { readinessScore: true, verificationStatus: true } },
+          allocations: { orderBy: { createdAt: 'desc' }, take: 1, select: { status: true, domain: { select: { name: true } } } },
         },
-        orderBy: { studentId: 'asc' }, skip: (safePage - 1) * pageSize, take: pageSize,
+        orderBy: { studentId: 'asc' }, skip: orderedIds ? 0 : (safePage - 1) * pageSize, take: pageSize,
       }),
     ]);
+    if (orderedIds) {
+      const positions = new Map(orderedIds.map((row, index) => [row.id, index]));
+      students.sort((a, b) => positions.get(a.id)! - positions.get(b.id)!);
+    }
     return {
       total, page: safePage, pageSize,
       students: students.map((student) => ({
         studentId: student.studentId, registerNumber: student.registerNumber,
         name: student.name, department: student.batch.department.code,
+        departmentName: student.batch.department.name, batch: student.batch.batchIdentifier,
+        rollNumber: student.user?.loginIdentifier ?? null,
+        readinessScore: student.readinessAssessments[0]?.readinessScore ?? null,
+        verificationStatus: student.readinessAssessments[0]?.verificationStatus ?? 'PENDING',
+        trainingGroup: student.allocations[0]?.domain?.name ?? student.rosterAllocation?.trainingGroup ?? null,
+        allocationStatus: student.allocations[0]?.status ?? (student.rosterAllocation ? 'EXISTING_ALLOCATION' : 'NOT_ALLOCATED'),
       })),
     };
   }
@@ -96,25 +159,42 @@ export class ProfilesService {
     });
     if (!student) throw new NotFoundException('Student not found');
 
-    const status = await this.prisma.studentCycleStatus.findFirst({
+    const [status, readiness, reported] = await Promise.all([
+      this.prisma.studentCycleStatus.findFirst({
       where: { studentId: student.id },
       include: { selectionCycle: true },
       orderBy: { createdAt: 'desc' },
-    });
+      }),
+      (this.readiness ?? new ReadinessService(this.prisma)).forStudent(student.id),
+      this.prisma.assessmentResult.findMany({
+        where: { studentId: student.id, assessmentType: { in: ['COMMUNICATION', 'INTERVIEW'] } },
+        orderBy: [{ assessmentDate: 'desc' }, { createdAt: 'desc' }],
+        select: { assessmentType: true, score: true, maxScore: true, assessmentDate: true, sourceIdentifier: true, metadata: true },
+      }),
+    ]);
     const identity = {
       studentId: student.studentId, name: student.name,
       registerNumber: student.registerNumber, email: student.email,
       department: student.batch.department.name, batch: student.batch.batchIdentifier,
     };
     const roster = student.rosterAllocation;
+    const seenTypes = new Set<string>();
+    const externalScores = reported.filter(row => { if (seenTypes.has(row.assessmentType)) return false; seenTypes.add(row.assessmentType); return true; }).map(row => {
+      const meta = (row.metadata ?? {}) as Record<string, unknown>;
+      return { type: row.assessmentType, score: row.score, maxScore: row.maxScore, assessedAt: row.assessmentDate,
+        source: typeof meta.source === 'string' ? meta.source : row.assessmentType === 'COMMUNICATION' ? 'PROJECT_1' : 'PROJECT_8',
+        imported: row.sourceIdentifier.startsWith('pull:'),
+        originalScore: typeof meta.originalScore === 'number' ? meta.originalScore : null,
+        originalMaxScore: typeof meta.originalMaxScore === 'number' ? meta.originalMaxScore : null };
+    });
     const rosterAllocation = roster ? {
       trainingGroup: roster.trainingGroup, trainingLevel: roster.trainingLevel,
       sourceFile: roster.sourceFile, sourceSheet: roster.sourceSheet, importedAt: roster.importedAt,
     } : null;
     if (!status) {
-      const assessment = await this.prisma.assessmentResult.findFirst({ where: { studentId: student.id }, select: { id: true } });
+      const assessment = Boolean(await this.prisma.assessmentResult.findFirst({ where: { studentId: student.id }, select: { id: true } })) || readiness.score !== null || readiness.parameters.some(parameter => parameter.rawScore !== null);
       return {
-        student: identity, cycle: null, outcome: 'NOT_IN_CYCLE', rosterAllocation,
+        student: identity, cycle: null, outcome: 'NOT_IN_CYCLE', rosterAllocation, readiness, externalScores,
         assessmentStatus: assessment ? 'AVAILABLE' : 'PENDING',
         reason: assessment
           ? 'Your student profile is ready, but selection-cycle enrollment is pending. No selection decision has been made.'
@@ -164,6 +244,14 @@ export class ProfilesService {
         ? `Not selected because the eligibility criteria were not met: ${failedReasons.join('; ')}.`
         : 'Not selected because one or more eligibility criteria were not met.';
       nextSteps = this.failureNextSteps(failures);
+    } else if (classification?.program === 'NOT_ELIGIBLE') {
+      const custom = classification.customEligibility as Record<string, {results?: Array<{isEligible:boolean;name:string;failedRules?:Failure[]}>}> | null;
+      const policies = Object.values(custom ?? {}).flatMap(p => p.results ?? []).filter(p => !p.isEligible);
+      const customFailures = policies.flatMap(p => p.failedRules ?? []);
+      failedReasons.push(...customFailures.map(f => this.failureMessage(f)));
+      outcome = 'NOT_ELIGIBLE';
+      reason = `You did not meet the selection rules for an available programme${policies.length ? `: ${[...new Set(policies.map(p => p.name))].join('; ')}` : ''}.`;
+      nextSteps = customFailures.length ? this.failureNextSteps(customFailures) : ['Contact the selection coordinator to review your programme eligibility.'];
     } else if (classification?.program === 'WAITLIST') {
       outcome = 'WAITLISTED';
       reason = `You met the eligibility rules, but rank ${ranking?.rank ?? classification.rank} was outside the available ${config?.hopeCount ?? 0} HOPE and ${config?.pepCount ?? 0} PEP places in this cycle.`;
@@ -176,7 +264,8 @@ export class ProfilesService {
         reason += ` Your proposed domain allocation was rejected${allocation.failureReason ? `: ${allocation.failureReason}` : ''}; your program selection remains recorded.`;
         nextSteps = ['Contact the selection coordinator for a revised allocation or review.'];
       } else if (allocation?.status === 'MANUAL_REVIEW') {
-        nextSteps = ['Your preferred domains need manual capacity review.', 'Wait for an authorized allocation decision.'];
+        reason += ` ${allocation.failureReason ?? 'Your preferred domains need manual review'}.`;
+        nextSteps = ['Ask your domain faculty to review the allocation requirements and available capacity.', 'Wait for an authorized allocation decision.'];
       } else if (outcome === 'FINALIZED') {
         nextSteps = [`Review your assigned domain${allocation?.domain ? `: ${allocation.domain.name}` : ''}.`, 'Follow the training-batch instructions from your coordinator.'];
       } else {
@@ -186,6 +275,8 @@ export class ProfilesService {
 
     return {
       student: identity,
+      readiness,
+      externalScores,
       rosterAllocation,
       cycle: { id: cycleId, code: status.selectionCycle.code, name: status.selectionCycle.name, status: status.selectionCycle.status },
       workflowState: status.currentState,
@@ -222,6 +313,8 @@ export class ProfilesService {
 
   private failureNextSteps(failures: Failure[]) {
     const steps = failures.map((failure) => {
+      if (failure.actual === null || failure.actual === undefined) return `Ask the assessment coordinator to supply or verify your ${failure.field ?? 'required'} data before the next evaluation.`;
+      if (['LTE','LT','EQ','NEQ'].includes(failure.operator ?? '')) return `Review the ${failure.field} requirement (${failure.operator} ${String(failure.expected)}) with your selection coordinator.`;
       if (failure.field === 'attendancePercent') return 'Improve attendance to the configured minimum before the next evaluation.';
       if (failure.field === 'cgpa') return 'Improve your CGPA to the configured minimum before the next cycle.';
       if (failure.field?.toLowerCase().includes('score')) return `Review and improve your ${failure.field} before the next evaluation.`;

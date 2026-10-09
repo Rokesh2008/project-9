@@ -22,7 +22,8 @@ describe('Imported college allocations', () => {
       student: { findUnique: jest.fn().mockResolvedValue({ id: 'student-1', studentId: '312325000001', registerNumber: '312325000001', name: 'Roster Student',
         batch: { batchIdentifier: 'SJCE-II-2026-2027-CSE', department: { name: 'CSE' } },
         rosterAllocation: { trainingGroup: 'HOPE Elite', trainingLevel: 'Full Stack + AI', sourceFile: 'roster.xlsx', sourceSheet: 'Sheet1', importedAt: new Date() } }) },
-      studentCycleStatus: { findFirst: jest.fn().mockResolvedValue(null) }, assessmentResult: { findFirst: jest.fn().mockResolvedValue(null) },
+      studentCycleStatus: { findFirst: jest.fn().mockResolvedValue(null) }, assessmentResult: { findFirst: jest.fn().mockResolvedValue(null), findMany: jest.fn().mockResolvedValue([]) },
+      readinessAssessment: { findFirst: jest.fn().mockResolvedValue(null) },
     };
     const result = await new ProfilesService(prisma as any).mine({ role: 'STUDENT', studentId: 'student-1' } as AuthPrincipal);
     expect(result.rosterAllocation).toMatchObject({ trainingGroup: 'HOPE Elite', trainingLevel: 'Full Stack + AI' });

@@ -1,0 +1,20 @@
+# Build context is an allowlisted standalone copy of apps/api, not the repository.
+FROM node:24-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20 AS build
+WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/*
+COPY package*.json ./
+COPY prisma ./prisma
+RUN npm ci
+COPY src ./src
+COPY tsconfig*.json ./
+RUN npm run build && npm prune --omit=dev --ignore-scripts
+FROM node:24-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20
+WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/*
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/dist ./dist
+ENV NODE_ENV=production
+ENV NODE_OPTIONS=--enable-source-maps
+USER node
+EXPOSE 8080
+CMD ["node", "dist/main.js"]

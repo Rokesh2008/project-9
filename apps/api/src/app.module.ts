@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { AuthController } from './auth/auth.controller';
 import { AuthGuard } from './auth/auth.guard';
 import { AuthService } from './auth/auth.service';
@@ -9,7 +9,7 @@ import { AgentService } from './agent.service';
 import { AiService } from './ai.service';
 import { AllocationController } from './allocation/allocation.controller';
 import { AllocationService } from './allocation/allocation.service';
-import { PrismaService } from './common/prisma.service';
+import { PrismaModule } from './common/prisma.module';
 import { AgentController, DemoController, HealthController, IntegrationsController, ReportsController, StudentsController } from './controllers';
 import { DemoService } from './demo.service';
 import { IntegrationsService } from './integrations.service';
@@ -23,10 +23,15 @@ import { SelectionPipelineService } from './selection-pipeline.service';
 import { Store } from './store';
 import { ProfilesController } from './profiles/profiles.controller';
 import { ProfilesService } from './profiles/profiles.service';
+import { PersistenceInterceptor } from './persistence.interceptor';
+import { ReadinessController } from './readiness/readiness.controller';
+import { ReadinessService } from './readiness/readiness.service';
+import { ExternalScoresService } from './external-scores/external-scores.service';
+import { ExternalScoresController } from './external-scores/external-scores.controller';
 
 @Module({
-  imports: [Member1Module],
-  controllers: [HealthController, AuthController, AccountsController, ProfilesController, IntegrationsController, StudentsController, DemoController, AgentController, ReportsController, AllocationController, SelectionPipelineController],
-  providers: [Store, IntegrationsService, OfficialIntegrationService, OfficialReadService, AiService, IntelligenceService, DemoService, AgentService, ReportsService, PrismaService, AllocationService, SelectionPipelineService, AuthService, AccountsService, ProfilesService, { provide: APP_GUARD, useClass: AuthGuard }],
+  imports: [PrismaModule, Member1Module],
+  controllers: [ExternalScoresController, ReadinessController, HealthController, AuthController, AccountsController, ProfilesController, IntegrationsController, StudentsController, DemoController, AgentController, ReportsController, AllocationController, SelectionPipelineController],
+  providers: [ExternalScoresService, ReadinessService, Store, IntegrationsService, OfficialIntegrationService, OfficialReadService, AiService, IntelligenceService, DemoService, AgentService, ReportsService, AllocationService, SelectionPipelineService, AuthService, AccountsService, ProfilesService, { provide: APP_GUARD, useClass: AuthGuard }, { provide: APP_INTERCEPTOR, useClass: PersistenceInterceptor }],
 })
 export class AppModule {}

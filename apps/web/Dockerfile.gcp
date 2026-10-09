@@ -1,0 +1,6 @@
+# Build the frontend locally first; context contains dist and nginx.gcp.conf only.
+FROM nginxinc/nginx-unprivileged:stable-alpine@sha256:15c994d10d6d78658721c3bcafff14cb281fba2a4bdf9d5ba92c416a472516e3
+COPY nginx.gcp.conf /etc/nginx/conf.d/default.conf
+COPY dist /usr/share/nginx/html
+USER 101
+EXPOSE 8080

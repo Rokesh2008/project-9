@@ -102,6 +102,24 @@ export class OfficialReadService {
 
   async selectionSummary() {
     if (!this.enabled()) return null;
+    // Aggregate in PostgreSQL; avoid transferring every status/classification
+    // and eliminate multiple sequential round trips on the initial page.
+    const rows = await this.prisma.$queryRaw<Array<{selectionCycleId:string;totalStudents:number;interviewEligible:number;selected:number;allocated:number;byProgram:Record<string,number>}>>`
+      WITH latest AS (SELECT id FROM "SelectionCycle" WHERE status IN ('ACTIVE','FROZEN') ORDER BY "createdAt" DESC LIMIT 1),
+      statuses AS (SELECT count(*)::int AS total, count(*) FILTER (WHERE "currentState" IN ('INTERVIEW','SELECTION','ALLOCATION','FINALIZED','FROZEN'))::int AS ready FROM "StudentCycleStatus" s JOIN latest c ON c.id=s."selectionCycleId"),
+      programs AS (SELECT program, count(*)::int AS total FROM "HopePepClassification" p JOIN latest c ON c.id=p."selectionCycleId" GROUP BY program)
+      SELECT c.id AS "selectionCycleId", s.total AS "totalStudents", s.ready AS "interviewEligible",
+        COALESCE((SELECT sum(total)::int FROM programs WHERE program IN ('HOPE','PEP')),0) AS selected,
+        (SELECT count(*)::int FROM "Allocation" a WHERE a."selectionCycleId"=c.id AND a.status IN ('APPROVED','FROZEN')) AS allocated,
+        COALESCE((SELECT jsonb_object_agg(program,total) FROM programs),'{}'::jsonb) AS "byProgram"
+      FROM latest c CROSS JOIN statuses s
+    `;
+    return {...(rows[0] ?? {totalStudents:0,interviewEligible:0,selected:0,allocated:0,byProgram:{}}),integrationFailures:this.store.logs.filter(log=>log.status==='FAILED').length};
+  }
+
+  /** Reference aggregation for parity tests; not routed. */
+  private async selectionSummaryLegacy() {
+    if (!this.enabled()) return null;
     const cycle = await this.latestCycle();
     if (!cycle) {
       return {
@@ -162,34 +180,34 @@ export class OfficialReadService {
       orderBy: { code: 'asc' },
     });
 
-    const rows = [];
-    for (const domain of domains) {
-      const [demand, allocated] = await Promise.all([
-        this.prisma.studentPreference.count({
-          where: { selectionCycleId: cycle.id, domainId: domain.id },
-        }),
-        this.prisma.allocation.count({
-          where: {
-            selectionCycleId: cycle.id,
-            domainId: domain.id,
-            status: { not: 'REJECTED' },
-          },
-        }),
-      ]);
+    // Two grouped queries avoid a round trip for every domain across regions.
+    const [demands, allocations] = await Promise.all([
+      this.prisma.studentPreference.groupBy({
+        by: ['domainId'], where: { selectionCycleId: cycle.id }, _count: { _all: true },
+      }),
+      this.prisma.allocation.groupBy({
+        by: ['domainId'], where: { selectionCycleId: cycle.id, status: { not: 'REJECTED' } },
+        _count: { _all: true },
+      }),
+    ]);
+    const demandByDomain = new Map(demands.map(row => [row.domainId, row._count._all]));
+    const allocatedByDomain = new Map(allocations.map(row => [row.domainId, row._count._all]));
+    return domains.map(domain => {
+      const demand = demandByDomain.get(domain.id) ?? 0;
+      const allocated = allocatedByDomain.get(domain.id) ?? 0;
       const capacity = domain.trainingBatches.reduce(
         (sum, batch) => sum + batch.maxCapacity,
         0,
       );
-      rows.push({
+      return {
         domain: `${domain.code} ${domain.name}`,
         capacity,
         demand,
         allocated,
         available: Math.max(0, capacity - allocated),
         overSubscribed: demand > capacity,
-      });
-    }
-    return rows;
+      };
+    });
   }
 
   async eligibilityFailures() {

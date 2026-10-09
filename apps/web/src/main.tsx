@@ -1,14 +1,21 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { AllocationAdmin } from './AllocationAdmin';
-import { AccountsAdmin } from './AccountsAdmin';
-import { CurrentUser, FacultyPortal, ProfileView, StudentPortal } from './Portals';
+const AllocationAdmin = lazy(() => import('./AllocationAdmin').then(m=>({default:m.AllocationAdmin})));
+const AccountsAdmin = lazy(() => import('./AccountsAdmin').then(m=>({default:m.AccountsAdmin})));
+const SelectionRules = lazy(() => import('./SelectionRules').then(m=>({default:m.SelectionRules})));
+const ExternalScores = lazy(() => import('./ExternalScores').then(m=>({default:m.ExternalScores})));
+import type { CurrentUser } from './Portals';
+const FacultyPortal = lazy(() => import('./Portals').then(m=>({default:m.FacultyPortal})));
+const StudentPortal = lazy(() => import('./Portals').then(m=>({default:m.StudentPortal})));
+const ProfileView = lazy(() => import('./Portals').then(m=>({default:m.ProfileView})));
 import { API, TOKEN_KEY, apiFetch, clearSession } from './api';
 import { Icon, WorkspaceShell } from './WorkspaceShell';
 import { CollegeBrand } from './CollegeBrand';
-import { RosterAllocations } from './RosterAllocations';
+import { StudentDirectory } from './StudentDirectory';
+const SelectionDemo = lazy(() => import('./SelectionDemo').then(m=>({default:m.SelectionDemo})));
 import './ui.css';
 import './college.css';
+import './portals.css';
 
 type Summary = {
   totalStudents: number;
@@ -26,7 +33,7 @@ type Student = { studentId: string; registerNumber: string; name: string; progra
 type Anomaly = { studentId: string; severity: string; type: string; detail: string };
 
 function App() {
-  const [view, setView] = useState<'member3' | 'allocations' | 'accounts' | 'roster'>('member3');
+  const [view, setView] = useState<'member3' | 'allocations' | 'accounts' | 'directory' | 'rules' | 'demo'>('directory');
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [summary, setSummary] = useState<Summary>({ totalStudents: 0, interviewEligible: 0, selected: 0, allocated: 0, integrationFailures: 0 });
@@ -43,6 +50,7 @@ function App() {
   const [loginPassword, setLoginPassword] = useState('');
   const [studentSearch, setStudentSearch] = useState('');
   const [studentFilter, setStudentFilter] = useState('ALL');
+  const [candidatePage, setCandidatePage] = useState(1);
   const [activeSection, setActiveSection] = useState('overview');
 
   async function requestJson<T = any>(url: string, init: RequestInit = {}): Promise<T> {
@@ -60,15 +68,20 @@ function App() {
 
   async function refresh() {
     try {
-      const [s, l, c, r, st, a] = await Promise.all([
-        requestJson<Summary>(`${API}/reports/selection-summary`),
-        requestJson<Log[]>(`${API}/integrations/logs`),
-        requestJson<Capacity[]>(`${API}/reports/domain-capacity`),
-        requestJson<Recommendation[]>(`${API}/agent/selection/recommendations`),
-        requestJson<Student[]>(`${API}/students`),
-        requestJson<Anomaly[]>(`${API}/ai/anomalies`),
+      // The default paginated directory needs no full-cohort/advisory payload.
+      // Fetch those only when their workspace is actually opened.
+      if (view !== 'member3') {
+        setSummary(await requestJson<Summary>(`${API}/reports/selection-summary`));
+        return;
+      }
+      await Promise.all([
+        requestJson<Summary>(`${API}/reports/selection-summary`).then(setSummary),
+        requestJson<Log[]>(`${API}/integrations/logs`).then(setLogs),
+        requestJson<Capacity[]>(`${API}/reports/domain-capacity`).then(setCapacities),
+        requestJson<Recommendation[]>(`${API}/agent/selection/recommendations`).then(setRecommendations),
+        requestJson<Student[]>(`${API}/students`).then(setStudents),
+        requestJson<Anomaly[]>(`${API}/ai/anomalies`).then(setAnomalies),
       ]);
-      setSummary(s); setLogs(l); setCapacities(c); setRecommendations(r); setStudents(st); setAnomalies(a);
       setLoginRequired(false);
     } catch (error) {
       if (error instanceof Error && error.message === 'AUTH_REQUIRED') return;
@@ -89,6 +102,8 @@ function App() {
   }
 
   useEffect(() => { if (localStorage.getItem(TOKEN_KEY)) void initialize(); }, []);
+  useEffect(() => { if(user && (user.role==='ADMIN'||user.role==='COORDINATOR') && view==='member3') void refresh(); }, [view,user?.email]);
+  useEffect(() => { setCandidatePage(1); }, [studentSearch,studentFilter,students]);
 
   async function importFile(file: File) {
     setBusy(true);
@@ -270,15 +285,18 @@ function App() {
   const topCapacity = useMemo(() => capacities.slice().sort((a, b) => b.demand - a.demand).slice(0, 6), [capacities]);
   const maxCapacity = Math.max(1, ...topCapacity.map((item) => item.capacity));
 
-  const filteredStudents = students.filter(student => `${student.name} ${student.studentId} ${student.registerNumber}`.toLowerCase().includes(studentSearch.toLowerCase()) &&
-    (studentFilter === 'ALL' || student.program === studentFilter));
+  const matchingStudents = useMemo(() => students.filter(student => `${student.name} ${student.studentId} ${student.registerNumber}`.toLowerCase().includes(studentSearch.toLowerCase()) &&
+    (studentFilter === 'ALL' || student.program === studentFilter)),[students,studentSearch,studentFilter]);
+  const candidatePages=Math.max(1,Math.ceil(matchingStudents.length/50));
+  const safeCandidatePage=Math.min(candidatePage,candidatePages);
+  const filteredStudents=matchingStudents.slice((safeCandidatePage-1)*50,safeCandidatePage*50);
   if (loginRequired) {
     return <div className="loginPage">
       <div className="loginIntro"><div className="loginBrand"><CollegeBrand portal="An Autonomous Institution" /></div><p className="eyebrow">PEP / HOPE · STUDENT SELECTION</p><h1>Your potential.<br />Your next step.</h1><p>The college’s selection and allocation workspace. Track your results, understand every decision, and plan your next steps.</p><div className="loginFeatures"><span><Icon name="check" />Clear selection results and next steps</span><span><Icon name="users" />Dedicated student & faculty portals</span><span><Icon name="shield" />Domain-based faculty approvals</span></div><small>St. Joseph’s College of Engineering · <a href="https://stjosephs.ac.in/" target="_blank" rel="noopener noreferrer">College website ↗</a></small></div>
       <div className="loginFormArea"><form className="loginForm" onSubmit={(event) => void login(event)}>
-        <span className="loginEmblem"><Icon name="shield" size={28} /></span><h1>Welcome back</h1><p className="portalMuted">Students: use your register number. Faculty and administrators: use your account email.</p>
+        <span className="loginEmblem"><Icon name="shield" size={28} /></span><h1>Welcome back</h1><p className="portalMuted">Students: use your roll number. Faculty and administrators: use your account email.</p>
         {notice && notice !== 'Ready for synchronized intake' && <p className="portalNotice" role="status">{notice}</p>}
-        <label>Register number or account email<input aria-label="Register number or account email" autoComplete="username" type="text" required placeholder="Enter register number or email" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} /></label>
+        <label>Roll number or account email<input aria-label="Roll number or account email" autoComplete="username" type="text" required placeholder="Enter roll number or email" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} /></label>
         <label>Password<input aria-label="Password" autoComplete="current-password" type="password" required placeholder="Enter your password" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} /></label>
         <button className="primary dark" disabled={busy} type="submit">{busy ? 'Signing in…' : 'Sign in to workspace'}<Icon name="arrow" size={17} /></button>
         <p className="loginHelp"><Icon name="lock" size={14} />Access is managed by your administrator.</p>
@@ -292,18 +310,20 @@ function App() {
 
   const section = (id: string) => { setView('member3'); setActiveSection(id); window.setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' }), 0); };
   return <WorkspaceShell account={user.email} role={user.role === 'ADMIN' ? 'Administrator' : 'Coordinator'} cycle={summary.selectionCycleId} onSignOut={logout}
-    actions={<><button className="ghost" disabled={busy} onClick={() => void refresh()}><Icon name="refresh" size={16} />Refresh data</button><button className="primary dark" disabled={busy || !summary.selectionCycleId} onClick={() => void runOfficialSelection()}><Icon name="play" size={17} />Run selection</button></>}
+    actions={view==='demo'?<span className="outlineBadge">SYNTHETIC DEMO ONLY</span>:<><button className="ghost" disabled={busy} onClick={() => void refresh()}><Icon name="refresh" size={16} />Refresh data</button><button className="primary dark" disabled={busy || !summary.selectionCycleId} onClick={() => void runOfficialSelection()}><Icon name="play" size={17} />Run selection</button></>}
     items={[
       { label: 'Selection Overview', icon: 'shield', active: view === 'member3' && activeSection === 'overview', onClick: () => section('overview') },
       { label: 'Intake Pipeline', icon: 'intake', active: view === 'member3' && activeSection === 'integrations', onClick: () => section('integrations') },
-      { label: 'Student Classification', icon: 'nodes', active: view === 'member3' && activeSection === 'students', onClick: () => section('students') },
+      { label: 'Current Cycle Results', icon: 'nodes', active: view === 'member3' && activeSection === 'students', onClick: () => section('students') },
       { label: 'Advisory Allocation', icon: 'check', active: view === 'member3' && activeSection === 'intelligence', onClick: () => section('intelligence') },
       { label: 'Domain Capacities', icon: 'chart', active: view === 'member3' && activeSection === 'capacity', onClick: () => section('capacity') },
       { label: 'Allocation & Freeze', icon: 'lock', active: view === 'allocations', onClick: () => setView('allocations') },
-      { label: 'Excel Allocations', icon: 'users', active: view === 'roster', onClick: () => setView('roster') },
+      { label: 'Student Directory', icon: 'users', active: view === 'directory', onClick: () => setView('directory') },
+      ...(user.role === 'ADMIN' ? [{ label: 'Live Rules Demo', icon: 'play', active: view === 'demo', onClick: () => setView('demo') }] : []),
+      ...(user.role === 'ADMIN' ? [{ label: 'Selection Rules', icon: 'shield', active: view === 'rules', onClick: () => setView('rules') }] : []),
       ...(user.role === 'ADMIN' ? [{ label: 'Account Management', icon: 'users', active: view === 'accounts', onClick: () => setView('accounts') }] : []),
     ]}>
-    {view === 'accounts' && user.role === 'ADMIN' ? <AccountsAdmin /> : view === 'allocations' ? <AllocationAdmin initialCycleId={summary.selectionCycleId} /> : view === 'roster' ? <><RosterAllocations onOpenProfile={setSelectedStudentId} />{selectedStudentId && <section className="rosterProfile"><button className="ghost" onClick={() => setSelectedStudentId(null)}>Close profile</button><ProfileView studentId={selectedStudentId} /></section>}</> : <>
+    {view === 'demo' && user.role === 'ADMIN' ? <SelectionDemo user={user} /> : view === 'rules' && user.role === 'ADMIN' ? <SelectionRules user={user} /> : view === 'accounts' && user.role === 'ADMIN' ? <AccountsAdmin /> : view === 'allocations' ? <AllocationAdmin initialCycleId={summary.selectionCycleId} /> : view === 'directory' ? <><StudentDirectory onOpenProfile={setSelectedStudentId} />{selectedStudentId && <section className="rosterProfile"><button className="ghost" onClick={() => setSelectedStudentId(null)}>Close profile</button><ProfileView studentId={selectedStudentId} /></section>}</> : <>
       <header id="overview" className="commandHero"><div><p className="eyebrow">ST. JOSEPH’S / SELECTION & ALLOCATION</p><h1>Student Selection<br />Overview</h1><p className="heroMeta"><span className="dot" />{summary.selectionCycleId ? 'Active selection cycle' : 'Awaiting selection cycle'}<span>·</span>Rule-based selection · Faculty approval</p></div><div className="heroActions"><span className="outlineBadge">PEP / HOPE SELECTION</span><button className="primary" disabled={busy} onClick={() => section('intelligence')}><Icon name="arrow" size={16} />Review advisory queue</button></div></header>
       <section className="notice"><span>{notice}</span><button onClick={() => void refresh()}>Refresh</button></section>
       <section className="panel lifecyclePanel"><div className="panelHead"><h2><Icon name="nodes" />Selection Lifecycle Stage Progression</h2><span className="portalMuted">Current cycle snapshot</span></div><div className="lifecycleCards">{[
@@ -326,6 +346,7 @@ function App() {
           <div className="panelHead"><div><p className="eyebrow">INTAKE PIPELINE</p><h2>External system exchange</h2></div>
             <label className="upload">{busy ? 'Working…' : 'Import CSV / XLSX'}<input disabled={busy} type="file" accept=".csv,.xlsx,.xls" onChange={(e) => e.target.files?.[0] && void importFile(e.target.files[0])} /></label>
           </div>
+          <ExternalScores onSynced={refresh} />
           <div className="sources">
             <Source code="P2" title="Readiness data" copy="Student and assessment ingestion" />
             <Source code="P1" title="Communication" copy="Eligible export and result return" />
@@ -343,12 +364,13 @@ function App() {
           <div className="exports"><button onClick={() => void downloadReport('/reports/selection.csv', 'selection-report.csv')}>Selection CSV</button><button onClick={() => void downloadReport('/reports/domain-capacity.csv', 'domain-capacity-report.csv')}>Capacity CSV</button></div>
         </section>
         <section id="students" className="panel span3">
-          <div className="panelHead"><div><p className="eyebrow">STUDENT INTELLIGENCE</p><h2>Cohort Classification Ledger</h2></div><span className="outlineBadge">{students.length} profiles</span></div>
+          <div className="panelHead"><div><p className="eyebrow">CURRENT SELECTION CYCLE ONLY</p><h2>Cycle Classification Results</h2><p className="portalMuted">These are cycle results, not the complete student directory.</p></div><span className="outlineBadge">{students.length} cycle records</span></div>
           <div className="ledgerToolbar"><div className="ledgerTabs">{[['ALL', 'All'], ['HOPE', 'HOPE'], ['PEP', 'PEP'], ['WAITLIST', 'Waitlist'], ['NOT_ELIGIBLE', 'Not eligible']].map(([key, label]) => <button key={key} className={studentFilter === key ? 'active' : 'ghost'} onClick={() => setStudentFilter(key)}>{label}</button>)}</div><label className="searchField"><Icon name="search" size={17} /><input aria-label="Filter student ledger" placeholder="Search candidate name, ID, or register number" value={studentSearch} onChange={event => setStudentSearch(event.target.value)} /></label></div>
           <div className="studentTable"><table><thead><tr><th>Student</th><th>Program</th><th>Coding</th><th>Attendance</th><th>Interview queue</th><th>Classification</th><th>Recommendation</th><th>Actions</th></tr></thead><tbody>
             {filteredStudents.map((student) => <tr key={student.studentId}><td><button className="textButton" onClick={() => setSelectedStudentId(student.studentId)}>{student.name}</button><small>{student.studentId} · {student.registerNumber}</small></td><td>{student.program}</td><td>{student.codingScore}</td><td>{student.attendancePercent}%</td><td><span className={`pill ${student.interviewEligible ? 'verified' : 'neutral'}`}>{student.interviewEligible ? 'READY' : 'NOT IN QUEUE'}</span></td><td><span className={`pill ${student.selected ? 'succeeded' : 'neutral'}`}>{student.program === 'UNASSIGNED' ? 'PENDING' : student.program.replaceAll('_', ' ')}</span></td><td>{student.allocation ?? student.advisoryAnalysis?.recommendedDomains?.[0]?.domain ?? 'Not analyzed'}{student.advisoryAnalysis && <small>{student.advisoryAnalysis.trend} · Advisory</small>}{whatIf[student.studentId] && <small className="whatIf">{whatIf[student.studentId]}</small>}</td><td><div className="rowActions"><button disabled={busy} onClick={() => void analyze(student.studentId)}>Analyze</button><button className="ghost" onClick={() => void simulateImprovement(student)}>What-if +10</button></div></td></tr>)}
             {!filteredStudents.length && <tr><td colSpan={8} className="empty">{students.length ? "No candidates match these filters." : "Import a CSV to add student profiles."}</td></tr>}
           </tbody></table></div>
+          <div className="directoryPages"><button className="ghost" disabled={safeCandidatePage<=1} onClick={()=>setCandidatePage(safeCandidatePage-1)}>Previous candidates</button><span>Page {safeCandidatePage} of {candidatePages} · {matchingStudents.length} matching candidates · 50 per page</span><button className="ghost" disabled={safeCandidatePage>=candidatePages} onClick={()=>setCandidatePage(safeCandidatePage+1)}>Next candidates</button></div>
           <div className="analysisGrid">{students.filter((student) => student.advisoryAnalysis).slice(0, 4).map((student) => <article key={student.studentId}><div><small>{student.studentId}</small><h3>{student.name}</h3></div><div><b>Strengths</b><p>{student.advisoryAnalysis!.strengths.join(' · ') || 'No strong signal yet'}</p></div><div><b>Gaps</b><p>{student.advisoryAnalysis!.gaps.join(' · ') || 'No material gaps detected'}</p></div></article>)}</div>
         </section>
         {selectedStudentId && <section className="panel span3"><div className="panelHead"><h2>Selection explanation · {selectedStudentId}</h2><button onClick={() => setSelectedStudentId(null)}>Close profile</button></div><ProfileView studentId={selectedStudentId} /></section>}
@@ -375,4 +397,4 @@ function Source({ code, title, copy }: { code: string; title: string; copy: stri
   return <article className="source"><span>{code}</span><div><b>{title}</b><small>{copy}</small></div><i /></article>;
 }
 
-createRoot(document.getElementById('root')!).render(<React.StrictMode><App /></React.StrictMode>);
+createRoot(document.getElementById('root')!).render(<React.StrictMode><Suspense fallback={<main className="notice" role="status">Loading workspace…</main>}><App /></Suspense></React.StrictMode>);
