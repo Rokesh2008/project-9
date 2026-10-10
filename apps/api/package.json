@@ -1,5 +1,6 @@
 {
   "name": "@project9/api",
+  "version": "1.0.0",
   "private": true,
   "overrides": {
     "@nestjs/swagger": { "js-yaml": "5.4.3" },

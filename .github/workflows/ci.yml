@@ -32,6 +32,9 @@ jobs:
       PERSISTENCE_DRIVER: file
       STATE_FILE: /tmp/project9-ci-state.json
       ENABLE_FREEZE_SCHEDULER: 'false'
+      # Generate only after the complete workspace dependency tree is installed.
+      PRISMA_SKIP_POSTINSTALL_GENERATE: 'true'
+      PRISMA_GENERATE_SKIP_AUTOINSTALL: 'true'
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -40,7 +43,10 @@ jobs:
         with:
           node-version: '24'
           cache: npm
-      - run: npm ci
+      - name: Install locked dependencies without lifecycle hooks
+        run: npm ci --ignore-scripts
+      - name: Generate Prisma client from installed workspace dependencies
+        run: npm run prisma:generate -w apps/api
       - run: npm run prisma:deploy -w apps/api
       - run: npm run typecheck
       - run: npm run build
