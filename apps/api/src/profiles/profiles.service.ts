@@ -161,7 +161,7 @@ export class ProfilesService {
 
     const [status, readiness, reported] = await Promise.all([
       this.prisma.studentCycleStatus.findFirst({
-      where: { studentId: student.id },
+      where: { studentId: student.id, selectionCycle: { status: { not: 'DRAFT' } } },
       include: { selectionCycle: true },
       orderBy: { createdAt: 'desc' },
       }),

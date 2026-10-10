@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { CycleManagementController, CycleManagementService } from './cycle-management';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { AuthController } from './auth/auth.controller';
 import { AuthGuard } from './auth/auth.guard';
@@ -31,7 +32,7 @@ import { ExternalScoresController } from './external-scores/external-scores.cont
 
 @Module({
   imports: [PrismaModule, Member1Module],
-  controllers: [ExternalScoresController, ReadinessController, HealthController, AuthController, AccountsController, ProfilesController, IntegrationsController, StudentsController, DemoController, AgentController, ReportsController, AllocationController, SelectionPipelineController],
-  providers: [ExternalScoresService, ReadinessService, Store, IntegrationsService, OfficialIntegrationService, OfficialReadService, AiService, IntelligenceService, DemoService, AgentService, ReportsService, AllocationService, SelectionPipelineService, AuthService, AccountsService, ProfilesService, { provide: APP_GUARD, useClass: AuthGuard }, { provide: APP_INTERCEPTOR, useClass: PersistenceInterceptor }],
+  controllers: [CycleManagementController, ExternalScoresController, ReadinessController, HealthController, AuthController, AccountsController, ProfilesController, IntegrationsController, StudentsController, DemoController, AgentController, ReportsController, AllocationController, SelectionPipelineController],
+  providers: [CycleManagementService, ExternalScoresService, ReadinessService, Store, IntegrationsService, OfficialIntegrationService, OfficialReadService, AiService, IntelligenceService, DemoService, AgentService, ReportsService, AllocationService, SelectionPipelineService, AuthService, AccountsService, ProfilesService, { provide: APP_GUARD, useClass: AuthGuard }, { provide: APP_INTERCEPTOR, useClass: PersistenceInterceptor }],
 })
 export class AppModule {}

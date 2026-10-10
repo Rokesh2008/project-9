@@ -77,7 +77,7 @@ export class AuthGuard implements CanActivate {
 
   private assertAccess(path: string, method: string, role: string) {
     const action = method.toUpperCase();
-    if (path.startsWith('/api/accounts')) {
+    if (path.startsWith('/api/accounts') || path.startsWith('/api/cycle-management')) {
       if (role !== 'ADMIN') throw new ForbiddenException('Administrator role required');
       return;
     }

@@ -1,0 +1,46 @@
+PROJECT 9 — ADMIN CYCLE MANAGEMENT RELEASE — 2026-10-09
+
+API revision: project9-api-00030-koh (100% traffic)
+API image: sha256:436d8a7010af12e230815d20d95b7231cd9bc3728ecf2376b2a1a0768f096d65
+API build: 72a72ae2-561a-40e5-abe7-41dcf50b6be3
+Web revision: project9-web-00022-lum (100% traffic)
+Web image: sha256:5a7613064ae6f9d4eab2a202fa8ace163b0a511bf0574db5a65f15b3929a8f08
+Web build: dd52601b-2f28-4f60-b185-c253684ff443
+
+Admin navigation: Selection Cycles.
+- Create a draft using all active non-synthetic students, a department/batch,
+  the source cycle cohort, or individually selected existing students.
+- Configure seats and use verified-readiness scoring or clone an existing
+  cycle's scoring weights and baseline. Custom policies are not copied.
+- Explicitly opt in to copying domain preferences for enrolled students.
+- Activation requires confirmation before archiving other active cycles.
+  Existing results are retained; selection is not automatically run.
+- Draft enrollment is excluded from the student-facing current-cycle profile.
+- Isolated synthetic demo cycles cannot become the official active cycle.
+- Archived/completed cycles cannot rerun the selection pipeline.
+
+Verification:
+- API/frontend type checks and production builds passed.
+- 762 tests across 46 suites passed before final isolation guards.
+- After final guards, 9 cycle/demo/pipeline integration tests passed.
+- Candidate API readiness and web health passed before production traffic changed.
+- Live read-only check: admin options 200; unauthenticated options 401.
+- Browser verification: admin navigation opens Selection Cycles; the creation
+  form, batch choices, configuration controls and cycle history render correctly.
+- Existing active cycle still has eight members; synthetic draft still has six.
+  The options endpoint returned 74 department/batch enrollment choices.
+- No production cycle was created, activated or archived for verification.
+- No database schema migration, account reset, assessment update or selection run
+  was performed by this release. Existing runtime scaling/secrets were retained.
+
+Operational notes:
+- Creation starts as DRAFT, not ACTIVE. Review seats, cohort, baseline and weights
+  before activation. Zero seats means no places in that programme.
+- Activating a cycle changes the portal's default current cycle. It does not
+  create allocation preferences unless copying was explicitly requested.
+- Add custom rules such as v1 under Selection Rules for the new cycle; rules
+  remain scoped to their original cycle unless recreated deliberately.
+- No new managed resources were provisioned. Cloud build/runtime usage may incur
+  charges beyond free allowances; caps are not hard monetary limits.
+- These feature changes remain local/uncommitted; the earlier GitHub push is
+  commit 994deb9 and does not include this subsequent release.

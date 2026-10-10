@@ -41,6 +41,7 @@ export async function runBulkSelection(prisma: PrismaService, selectionCycleId: 
     await tx.$queryRaw`SELECT id FROM "SelectionCycle" WHERE id = ${selectionCycleId} FOR UPDATE`;
     const cycle = await tx.selectionCycle.findUnique({where:{id:selectionCycleId}});
     if (!cycle) throw new NotFoundException('Selection cycle not found');
+    if (cycle.status === 'ARCHIVED' || cycle.status === 'COMPLETED') throw new BadRequestException('Archived or completed cycles cannot rerun selection');
     if (cycle.status === 'FROZEN') throw new BadRequestException('Frozen cycles cannot run the live selection pipeline');
     if (await tx.freezeSchedule.findFirst({where:{selectionCycleId,status:'EXECUTED'}})) throw new ConflictException('Cannot recalculate live selection after freeze has been executed');
     const config = await tx.cycleConfig.findUnique({where:{selectionCycleId},include:{activeWeightVersion:{include:{weights:{orderBy:{sortOrder:'asc'}}}}}});

@@ -13,6 +13,7 @@ import { Icon, WorkspaceShell } from './WorkspaceShell';
 import { CollegeBrand } from './CollegeBrand';
 import { StudentDirectory } from './StudentDirectory';
 const SelectionDemo = lazy(() => import('./SelectionDemo').then(m=>({default:m.SelectionDemo})));
+const CycleManagement = lazy(() => import('./CycleManagement').then(m=>({default:m.CycleManagement})));
 import './ui.css';
 import './college.css';
 import './portals.css';
@@ -33,7 +34,7 @@ type Student = { studentId: string; registerNumber: string; name: string; progra
 type Anomaly = { studentId: string; severity: string; type: string; detail: string };
 
 function App() {
-  const [view, setView] = useState<'member3' | 'allocations' | 'accounts' | 'directory' | 'rules' | 'demo'>('directory');
+  const [view, setView] = useState<'member3' | 'allocations' | 'accounts' | 'directory' | 'rules' | 'demo' | 'cycles'>('directory');
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [summary, setSummary] = useState<Summary>({ totalStudents: 0, interviewEligible: 0, selected: 0, allocated: 0, integrationFailures: 0 });
@@ -310,7 +311,7 @@ function App() {
 
   const section = (id: string) => { setView('member3'); setActiveSection(id); window.setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' }), 0); };
   return <WorkspaceShell account={user.email} role={user.role === 'ADMIN' ? 'Administrator' : 'Coordinator'} cycle={summary.selectionCycleId} onSignOut={logout}
-    actions={view==='demo'?<span className="outlineBadge">SYNTHETIC DEMO ONLY</span>:<><button className="ghost" disabled={busy} onClick={() => void refresh()}><Icon name="refresh" size={16} />Refresh data</button><button className="primary dark" disabled={busy || !summary.selectionCycleId} onClick={() => void runOfficialSelection()}><Icon name="play" size={17} />Run selection</button></>}
+    actions={view==='demo'?<span className="outlineBadge">SYNTHETIC DEMO ONLY</span>:view==='cycles'?<span className="outlineBadge">DRAFT → REVIEW → ACTIVATE</span>:<><button className="ghost" disabled={busy} onClick={() => void refresh()}><Icon name="refresh" size={16} />Refresh data</button><button className="primary dark" disabled={busy || !summary.selectionCycleId} onClick={() => void runOfficialSelection()}><Icon name="play" size={17} />Run selection</button></>}
     items={[
       { label: 'Selection Overview', icon: 'shield', active: view === 'member3' && activeSection === 'overview', onClick: () => section('overview') },
       { label: 'Intake Pipeline', icon: 'intake', active: view === 'member3' && activeSection === 'integrations', onClick: () => section('integrations') },
@@ -321,9 +322,10 @@ function App() {
       { label: 'Student Directory', icon: 'users', active: view === 'directory', onClick: () => setView('directory') },
       ...(user.role === 'ADMIN' ? [{ label: 'Live Rules Demo', icon: 'play', active: view === 'demo', onClick: () => setView('demo') }] : []),
       ...(user.role === 'ADMIN' ? [{ label: 'Selection Rules', icon: 'shield', active: view === 'rules', onClick: () => setView('rules') }] : []),
+      ...(user.role === 'ADMIN' ? [{ label: 'Selection Cycles', icon: 'nodes', active: view === 'cycles', onClick: () => setView('cycles') }] : []),
       ...(user.role === 'ADMIN' ? [{ label: 'Account Management', icon: 'users', active: view === 'accounts', onClick: () => setView('accounts') }] : []),
     ]}>
-    {view === 'demo' && user.role === 'ADMIN' ? <SelectionDemo user={user} /> : view === 'rules' && user.role === 'ADMIN' ? <SelectionRules user={user} /> : view === 'accounts' && user.role === 'ADMIN' ? <AccountsAdmin /> : view === 'allocations' ? <AllocationAdmin initialCycleId={summary.selectionCycleId} /> : view === 'directory' ? <><StudentDirectory onOpenProfile={setSelectedStudentId} />{selectedStudentId && <section className="rosterProfile"><button className="ghost" onClick={() => setSelectedStudentId(null)}>Close profile</button><ProfileView studentId={selectedStudentId} /></section>}</> : <>
+    {view === 'cycles' && user.role === 'ADMIN' ? <CycleManagement onActivated={refresh} /> : view === 'demo' && user.role === 'ADMIN' ? <SelectionDemo user={user} /> : view === 'rules' && user.role === 'ADMIN' ? <SelectionRules user={user} /> : view === 'accounts' && user.role === 'ADMIN' ? <AccountsAdmin /> : view === 'allocations' ? <AllocationAdmin initialCycleId={summary.selectionCycleId} /> : view === 'directory' ? <><StudentDirectory onOpenProfile={setSelectedStudentId} />{selectedStudentId && <section className="rosterProfile"><button className="ghost" onClick={() => setSelectedStudentId(null)}>Close profile</button><ProfileView studentId={selectedStudentId} /></section>}</> : <>
       <header id="overview" className="commandHero"><div><p className="eyebrow">ST. JOSEPH’S / SELECTION & ALLOCATION</p><h1>Student Selection<br />Overview</h1><p className="heroMeta"><span className="dot" />{summary.selectionCycleId ? 'Active selection cycle' : 'Awaiting selection cycle'}<span>·</span>Rule-based selection · Faculty approval</p></div><div className="heroActions"><span className="outlineBadge">PEP / HOPE SELECTION</span><button className="primary" disabled={busy} onClick={() => section('intelligence')}><Icon name="arrow" size={16} />Review advisory queue</button></div></header>
       <section className="notice"><span>{notice}</span><button onClick={() => void refresh()}>Refresh</button></section>
       <section className="panel lifecyclePanel"><div className="panelHead"><h2><Icon name="nodes" />Selection Lifecycle Stage Progression</h2><span className="portalMuted">Current cycle snapshot</span></div><div className="lifecycleCards">{[

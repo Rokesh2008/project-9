@@ -105,7 +105,7 @@ export class OfficialReadService {
     // Aggregate in PostgreSQL; avoid transferring every status/classification
     // and eliminate multiple sequential round trips on the initial page.
     const rows = await this.prisma.$queryRaw<Array<{selectionCycleId:string;totalStudents:number;interviewEligible:number;selected:number;allocated:number;byProgram:Record<string,number>}>>`
-      WITH latest AS (SELECT id FROM "SelectionCycle" WHERE status IN ('ACTIVE','FROZEN') ORDER BY "createdAt" DESC LIMIT 1),
+      WITH latest AS (SELECT id FROM "SelectionCycle" WHERE status IN ('ACTIVE','FROZEN') ORDER BY CASE WHEN status='ACTIVE' THEN 0 ELSE 1 END, "createdAt" DESC LIMIT 1),
       statuses AS (SELECT count(*)::int AS total, count(*) FILTER (WHERE "currentState" IN ('INTERVIEW','SELECTION','ALLOCATION','FINALIZED','FROZEN'))::int AS ready FROM "StudentCycleStatus" s JOIN latest c ON c.id=s."selectionCycleId"),
       programs AS (SELECT program, count(*)::int AS total FROM "HopePepClassification" p JOIN latest c ON c.id=p."selectionCycleId" GROUP BY program)
       SELECT c.id AS "selectionCycleId", s.total AS "totalStudents", s.ready AS "interviewEligible",
@@ -356,8 +356,9 @@ export class OfficialReadService {
   }
 
   private async latestCycle() {
-    return this.prisma.selectionCycle.findFirst({
-      where: { status: { in: ['ACTIVE', 'FROZEN'] } },
+    const active = await this.prisma.selectionCycle.findFirst({ where: { status: 'ACTIVE' }, orderBy: { createdAt: 'desc' } });
+    return active ?? this.prisma.selectionCycle.findFirst({
+      where: { status: 'FROZEN' },
       orderBy: { createdAt: 'desc' },
     });
   }
