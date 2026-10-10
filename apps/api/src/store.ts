@@ -1,4 +1,7 @@
-import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Injectable, OnModuleDestroy, OnModuleInit, Optional } from '@nestjs/common';
+import { AsyncLocalStorage } from 'node:async_hooks';
+import { PrismaService } from './common/prisma.service';
+import { SharedStateSession, StateScope } from './shared-state';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'fs';
 import { dirname, resolve } from 'path';
@@ -13,46 +16,106 @@ import {
 
 @Injectable()
 export class Store implements OnModuleInit, OnModuleDestroy {
-  readonly students = new Map<string, CanonicalStudent>();
-  readonly communicationResults = new Map<string, CommunicationResult>();
-  readonly interviewResults = new Map<string, InterviewResult>();
-  readonly idempotency = new Map<string, unknown>();
-  readonly logs: IntegrationLog[] = [];
-  readonly analyses = new Map<string, AdvisoryAnalysis>();
-  readonly recommendations = new Map<string, AgentRecommendation>();
-  readonly allocations = new Map<string, string>();
-  readonly auditEvents: Array<{ type: string; actorId: string; entityId: string; details: unknown; at: string }> = [];
+  private createState() { return {
+    students: new Map<string, CanonicalStudent>(),
+    communicationResults: new Map<string, CommunicationResult>(),
+    interviewResults: new Map<string, InterviewResult>(),
+    idempotency: new Map<string, unknown>(), logs: [] as IntegrationLog[],
+    analyses: new Map<string, AdvisoryAnalysis>(), recommendations: new Map<string, AgentRecommendation>(),
+    allocations: new Map<string, string>(),
+    auditEvents: [] as Array<{ type: string; actorId: string; entityId: string; details: unknown; at: string }>,
+  }; }
+  private readonly base = this.createState();
+  private readonly requestState = new AsyncLocalStorage<ReturnType<Store['createState']>>();
+  private get state() { return this.requestState.getStore() ?? this.base; }
+  get students() { return this.state.students; }
+  get communicationResults() { return this.state.communicationResults; }
+  get interviewResults() { return this.state.interviewResults; }
+  get idempotency() { return this.state.idempotency; }
+  get logs() { return this.state.logs; }
+  get analyses() { return this.state.analyses; }
+  get recommendations() { return this.state.recommendations; }
+  get allocations() { return this.state.allocations; }
+  get auditEvents() { return this.state.auditEvents; }
+
+  get horizontal() { return process.env.HORIZONTAL_STATE === 'true'; }
+
+  async scoped<T>(scopes: StateScope[], write: boolean, operation: () => Promise<T>): Promise<T> {
+    if (!this.database) throw new Error('Shared database is unavailable');
+    const work = async () => {
+      const session = await SharedStateSession.load(this.database!, scopes);
+      return this.requestState.run(this.createState(), async () => {
+        // Services may mutate a recommendation object in-place. Keep the loaded
+        // version immutable so the optimistic comparison sees those changes.
+        this.applyState(JSON.parse(JSON.stringify(session.state)) as Record<string, unknown>);
+        const result = await operation();
+        if (write) await session.commit(this.database!, this.serialize());
+        return result;
+      });
+    };
+    return write ? this.database.atomic(work) : work();
+  }
 
   private readonly stateFile = resolve(process.env.STATE_FILE ?? './data/runtime-state.json');
   private prisma?: PrismaClient;
+  private pendingPersistence: Promise<unknown> = Promise.resolve();
+  private pendingOperations: Promise<void> = Promise.resolve();
 
-  constructor() {
-    this.load();
+  // Legacy snapshot workflows must not interleave inside this single API instance.
+  // Development/legacy mode only; horizontal mode uses independent DB records.
+  runExclusive<T>(operation:()=>Promise<T>):Promise<T> {
+    const result=this.pendingOperations.then(operation,operation);
+    this.pendingOperations=result.then(()=>undefined,()=>undefined);
+    return result;
+  }
+
+  constructor(@Optional() private readonly database?: PrismaService) {
+    if (!this.horizontal) this.load();
   }
 
   async onModuleInit() {
+    if (this.horizontal && ((process.env.PERSISTENCE_DRIVER ?? 'file').toLowerCase() !== 'postgres' || !process.env.DATABASE_URL)) throw new Error('Horizontal mode requires PostgreSQL persistence');
     if ((process.env.PERSISTENCE_DRIVER ?? 'file').toLowerCase() !== 'postgres') return;
+    if (this.horizontal) {
+      if (!this.database) throw new Error('Horizontal mode requires PostgreSQL');
+      const ready = await this.database.$queryRaw<Array<{ version: number }>>`SELECT "version" FROM "SharedStateRecord" WHERE "namespace" = '_system' AND "key" = 'migration'`;
+      if (ready[0]?.version !== 1) throw new Error('Shared state cutover migration is required');
+      return;
+    }
     this.prisma = new PrismaClient();
     await this.prisma.$connect();
     const saved = await this.prisma.runtimeState.findUnique({ where: { id: 'main' } });
     if (saved?.payload) this.applyState(saved.payload as Record<string, unknown>);
   }
 
-  async onModuleDestroy() { await this.prisma?.$disconnect(); }
+  async onModuleDestroy() {
+    await this.flush();
+    await this.prisma?.$disconnect();
+  }
+
+  async flush() { await this.pendingPersistence; }
 
   persist() {
+    if (this.horizontal) {
+      if (!this.requestState.getStore()) throw new Error('Shared state mutation requires a request transaction');
+      return; // The request commits entity deltas and official writes together.
+    }
+    const state = this.serialize();
+    if (this.prisma) {
+      const payload = JSON.parse(JSON.stringify(state)) as Prisma.InputJsonValue;
+      this.pendingPersistence = this.pendingPersistence.catch(() => undefined).then(() => this.prisma!.runtimeState.upsert({
+        where: { id: 'main' },
+        create: { id: 'main', payload },
+        update: { payload },
+      }));
+      // The response interceptor awaits flush and propagates database errors.
+      void this.pendingPersistence.catch(() => undefined);
+      return;
+    }
     mkdirSync(dirname(this.stateFile), { recursive: true });
     const temporary = `${this.stateFile}.tmp`;
-    const state = this.serialize();
     writeFileSync(temporary, JSON.stringify(state, null, 2));
     renameSync(temporary, this.stateFile);
-    if (this.prisma) {
-      void this.prisma.runtimeState.upsert({
-        where: { id: 'main' },
-        create: { id: 'main', payload: state as unknown as Prisma.InputJsonValue },
-        update: { payload: state as unknown as Prisma.InputJsonValue },
-      }).catch(() => undefined);
-    }
   }
 
   private serialize() {

@@ -3,6 +3,7 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma.service';
@@ -15,6 +16,8 @@ import {
   type ParameterScoreDetail,
 } from './freeze.engine';
 import { FreezeNotificationService } from './freeze-notification.service';
+import { SelectionRulesService } from '../../selection-rules/selection-rules.service';
+import { databaseContext } from '../../common/database-context';
 import {
   classifyStudents,
   validateClassificationConfig,
@@ -41,6 +44,7 @@ export class FreezeService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly notifications: FreezeNotificationService,
+    @Optional() private readonly customRules?: SelectionRulesService,
   ) {}
 
   async schedule(
@@ -387,6 +391,9 @@ export class FreezeService {
           eligibilityFailures:
             eligibility?.failedRules?.map((fr) => fr.message) ?? null,
           program: classification?.program ?? null,
+          customEligibility: classification?.customEligibility ?? undefined,
+          hopeEligible: (classification?.customEligibility as any)?.hope?.isEligible ?? eligibility?.isEligible ?? false,
+          pepEligible: (classification?.customEligibility as any)?.pep?.isEligible ?? eligibility?.isEligible ?? false,
           tieBreakApplied: r.tieBreakApplied,
         };
       });
@@ -449,6 +456,9 @@ export class FreezeService {
               parameterScores:
                 e.parameterScores as unknown as Prisma.InputJsonValue,
               isEligible: e.isEligible,
+              hopeEligible: e.hopeEligible,
+              pepEligible: e.pepEligible,
+              customEligibility: e.customEligibility ? e.customEligibility as Prisma.InputJsonValue : Prisma.JsonNull,
               eligibilityFailures: e.eligibilityFailures
                 ? (e.eligibilityFailures as unknown as Prisma.InputJsonValue)
                 : Prisma.JsonNull,
@@ -660,12 +670,16 @@ export class FreezeService {
         }
       }
 
-      const classificationInputs = rankings.map((r) => ({
+      const classificationInputs = await Promise.all(rankings.map(async (r) => {
+        const hope = this.customRules ? await this.customRules.evaluate(r.studentId,selectionCycleId,null,'HOPE') : undefined;
+        const pep = this.customRules ? await this.customRules.evaluate(r.studentId,selectionCycleId,null,'PEP') : undefined;
+        return {
         studentId: r.studentId,
         rank: r.rank,
-        hopeEligible: eligibilityMap.get(r.studentId)?.isEligible ?? false,
-        pepEligible: eligibilityMap.get(r.studentId)?.isEligible ?? false,
-      }));
+        hopeEligible: (eligibilityMap.get(r.studentId)?.isEligible ?? false) && (hope?.isEligible ?? true),
+        pepEligible: (eligibilityMap.get(r.studentId)?.isEligible ?? false) && (pep?.isEligible ?? true),
+        ...(hope || pep ? {customEligibility:{hope,pep}} : {}),
+      };}));
 
       const config = {
         hopeCount: cycleConfig.hopeCount,
@@ -705,6 +719,9 @@ export class FreezeService {
           eligibilityFailures:
             eligibility?.failedRules?.map((fr) => fr.message) ?? null,
           program: programByStudent.get(r.studentId) ?? null,
+          hopeEligible: classificationInputs.find(i=>i.studentId===r.studentId)?.hopeEligible,
+          pepEligible: classificationInputs.find(i=>i.studentId===r.studentId)?.pepEligible,
+          customEligibility: classificationInputs.find(i=>i.studentId===r.studentId)?.customEligibility,
           tieBreakApplied: r.tieBreakApplied,
         };
       });
@@ -752,6 +769,9 @@ export class FreezeService {
               parameterScores:
                 e.parameterScores as unknown as Prisma.InputJsonValue,
               isEligible: e.isEligible,
+              hopeEligible: e.hopeEligible,
+              pepEligible: e.pepEligible,
+              customEligibility: e.customEligibility ? e.customEligibility as Prisma.InputJsonValue : Prisma.JsonNull,
               eligibilityFailures: e.eligibilityFailures
                 ? (e.eligibilityFailures as unknown as Prisma.InputJsonValue)
                 : Prisma.JsonNull,
@@ -1038,10 +1058,15 @@ export class FreezeService {
 
     for (const freeze of dueFreezes) {
       try {
-        const result = await this.executeFreeze(
-          freeze.selectionCycleId,
-          'SYSTEM_SCHEDULER',
-        );
+        const execute = () => this.executeFreeze(freeze.selectionCycleId, 'SYSTEM_SCHEDULER');
+        const result = process.env.HORIZONTAL_STATE === 'true' && !databaseContext.getStore()
+          ? await this.prisma.atomic(async () => {
+              await this.prisma.$queryRaw`SELECT "id" FROM "SelectionCycle" WHERE "id" = ${freeze.selectionCycleId} FOR UPDATE`;
+              const fresh = await this.prisma.freezeSchedule.findUnique({where:{id:freeze.id}});
+              if (!fresh || fresh.status !== 'SCHEDULED') throw new ConflictException('Freeze was already processed by another replica');
+              return execute();
+            })
+          : await execute();
         results.push({
           selectionCycleId: freeze.selectionCycleId,
           scheduleId: freeze.id,

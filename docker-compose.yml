@@ -13,7 +13,7 @@ services:
       retries: 10
   ai:
     build: ./services/ai
-    ports: ["8000:8000"]
+    ports: ["127.0.0.1:8000:8000"]
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 10s
@@ -31,14 +31,14 @@ services:
       PERSISTENCE_DRIVER: postgres
       OFFICIAL_PROJECTION: "true"
       DEMO_MODE: "${DEMO_MODE:-false}"
-      AUTH_REQUIRED: "${AUTH_REQUIRED:-false}"
+      AUTH_REQUIRED: "${AUTH_REQUIRED:-true}"
       AUTH_TOKEN_SECRET: "${AUTH_TOKEN_SECRET:-}"
       ADMIN_BOOTSTRAP_KEY: "${ADMIN_BOOTSTRAP_KEY:-}"
       INTEGRATION_API_KEY: "${INTEGRATION_API_KEY:-}"
       ENABLE_FREEZE_SCHEDULER: "${ENABLE_FREEZE_SCHEDULER:-true}"
-    ports: ["3000:3000"]
+    ports: ["127.0.0.1:3000:3000"]
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health >/dev/null || exit 1"]
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -51,9 +51,9 @@ services:
       dockerfile: apps/web/Dockerfile
       args:
         VITE_API_URL: ${VITE_API_URL:-http://localhost:3000/api}
-    ports: ["5173:80"]
+    ports: ["127.0.0.1:5173:8080"]
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost/ >/dev/null || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/ >/dev/null || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5

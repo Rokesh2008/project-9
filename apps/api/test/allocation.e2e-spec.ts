@@ -122,6 +122,8 @@ describe('Member 2 – Allocation workflow', () => {
   });
 
   it('allocates first preference when capacity is available', async () => {
+    // Capacity must cover every candidate: SQL does not promise insertion order.
+    await prisma.trainingBatch.update({ where: { id: batchAiMl }, data: { maxCapacity: 3 } });
     const res = await request(app.getHttpServer())
       .post('/api/allocations/generate')
       .set('x-actor-id', 'admin-1')
@@ -147,8 +149,12 @@ describe('Member 2 – Allocation workflow', () => {
     const aiMlAllocations = res.body.results.filter((r: any) => r.domainCode === 'PEPC-01');
     expect(aiMlAllocations.length).toBe(2);
 
-    const charlie = res.body.results.find((r: any) => r.studentId === studentId3);
-    expect(charlie.domainCode).not.toBe('PEPC-01');
+    // Which student loses the capacity race is not an ordering contract here.
+    // Verify the displaced student actually receives their second preference.
+    const displaced = res.body.results.filter((r: any) => r.domainCode !== 'PEPC-01');
+    expect(displaced).toHaveLength(1);
+    expect(displaced[0].preferenceRank).toBe(2);
+    expect(displaced[0].domainCode).toBe(displaced[0].studentId === studentId2 ? 'PEPC-06' : 'PEPC-05');
   });
 
   it('marks MANUAL_REVIEW when all preferences are full', async () => {

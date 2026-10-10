@@ -1,0 +1,85 @@
+PROJECT 9: HARDENING STATUS AND SCALING GATES
+
+2026-10-09 horizontal-state implementation:
+- Deployed and verified: see ops/HORIZONTAL_RELEASE_20261009.txt for current
+  configuration, migration provenance, live two-instance evidence and timings.
+- See docs/HORIZONTAL_SCALING.md for the protocol, mandatory write-paused
+  migration, independent-process verification and rollback procedure.
+- HORIZONTAL_STATE=true replaces snapshot writes with request-isolated,
+  per-entity versioned SQL records and transactionally coordinated official
+  writes. PostgreSQL rate limits are shared across replicas in that mode.
+- A single global Prisma provider replaces duplicate module-level pools.
+- The historical limitations below describe HORIZONTAL_STATE=false. They must
+  still be respected until cutover; never enable multiple legacy writers.
+- Durable automatic queue/worker delivery, production SLO/load evidence and
+  database HA remain separate requirements; horizontal safety is not unlimited
+  scalability or guaranteed free hosting.
+
+Implemented:
+- Production authentication/demo/CORS/database configuration checks fail closed.
+- Bounded HTTP bodies, per-instance login/request throttling, safe errors,
+  request correlation, no-cache student responses, security headers and CSP.
+- Nonblocking login password verification; passwords retain compatible hashes.
+- Database readiness probe; graceful shutdown; bounded database connection pool.
+- Campus-aware IP throttling and a separate per-account login limiter. The
+  target is 100 simultaneous users, not 100 simultaneous selection recalculations.
+- Legacy snapshot HTTP workflows are serialized within the API instance;
+  database-only student/profile/account requests do not enter that workflow queue.
+- External-fetch leases are claimed atomically in PostgreSQL. Retries, deadlines,
+  streamed response limits and content fingerprints bound resource use.
+- Pinned container base digests; non-root API/web/AI processes.
+- Runtime dependency vulnerability gates, tests in isolated PostgreSQL, CodeQL,
+  secret/configuration scanning, dependency updates and runtime SBOM artifacts.
+- Immutable-image candidate deployments verify health before switching traffic.
+
+Not a claim of complete horizontal scalability or a security certification:
+- Legacy Store still shares an in-memory snapshot persisted as one RuntimeState.
+  Do not raise API instance limits until its write paths are replaced by normalized
+  database operations with concurrency-safe transactions and durable job workers.
+- The current max-instance cap remains one. This protects existing state, pool
+  capacity and costs. Web and stateless AI can scale separately within budgets.
+- Rate limits are per instance, not a distributed rate-limit/WAF/DDoS service.
+- Long-running fetch/advisory actions still use bounded synchronous HTTP requests;
+  durable queues, cancellation and worker retry scheduling remain to be added.
+- External providers still expose HTTP endpoints; the interviewer currently has
+  public results endpoints. Coordinate HTTPS, authentication and key rotation with
+  provider teams. Project 9 cannot repair their deployment or enforce their IAM.
+- No peak-load SLA or sustained production-capacity certification exists.
+  A bounded live read burst was performed on 2026-10-09; see the release record
+  above, including its high end-to-end latency, rather than treating it as an SLA.
+  An isolated local PostgreSQL test on 2026-10-08 exercised 100 simultaneous
+  users (login plus their own profile): 200 successful requests, zero failures,
+  1,464 ms total, 1,297 ms p95 request latency. This does not certify cloud
+  capacity, cold-start latency or concurrent administrative workflows.
+- Database HA/backups/PITR and alerting require an explicit provider plan/budget.
+
+Before activating GitHub release automation:
+1. Push the reviewed source/workflows; CI is not active merely because files exist.
+2. Configure required reviewers on the production GitHub Environment and branch
+   protection requiring tests, security and static-analysis checks.
+3. Configure GCP Workload Identity Federation restricted to this repository,
+   main branch and production environment; no downloaded service-account keys.
+4. Supply repository variables GCP_WORKLOAD_IDENTITY_PROVIDER and
+   GCP_DEPLOY_SERVICE_ACCOUNT. Grant only Artifact Registry read, Cloud Run
+   update, and actAs for the exact existing runtime accounts. No owner/editor.
+5. Build/scan approved images and invoke the manual release with immutable digest.
+   A missing setup or failed gate must block deployment, not bypass scanning.
+
+Operations:
+- Local compose is development-only and binds ports to 127.0.0.1. Set a private
+  AUTH_TOKEN_SECRET before logging in. Start postgres, then run migrations once:
+  docker compose run --rm --no-deps api prisma migrate deploy --schema prisma/schema.prisma
+  Then start the remaining services. Migrations no longer run on every API start.
+- GET /api/health is liveness; GET /api/health/ready checks PostgreSQL availability.
+- Search structured logs by X-Request-ID. Never log headers, passwords, tokens,
+  student payloads, upstream transcripts, query strings or raw database errors.
+- Roll back traffic to the previous known-good Cloud Run revision. Retain its
+  image and verify database compatibility; image rollback does not undo data.
+- API scaling budget must include all Prisma clients per instance, not only one
+  pool. Cloud Run max-instance limits are not hard monetary caps.
+  API request concurrency is now 20. The horizontal-state release permits two
+  instances with ten connections each. Legacy snapshot mode must still remain
+  single-instance; count deployment/migration pools against provider limits too.
+- Scaling to zero may cause cold starts. Free-tier hosting is not guaranteed free.
+- Integration outage: preserve existing data; retry after upstream recovers.
+  Never rerun classification/allocation automatically to compensate for an outage.

@@ -4,13 +4,15 @@ import {
   Inject,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import { AuthPrincipal } from '../auth/auth.service';
+import { SelectionRulesService } from '../selection-rules/selection-rules.service';
 
 @Injectable()
 export class AllocationService {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService, @Optional() private readonly customRules?: SelectionRulesService) {}
 
   async generate(selectionCycleId: string, actorId: string) {
     const cycle = await this.prisma.selectionCycle.findUnique({
@@ -53,8 +55,13 @@ export class AllocationService {
       });
 
       let allocated = false;
+      const failedDomainRules: string[] = [];
 
       for (const pref of preferences) {
+        if (this.customRules) {
+          try { await this.customRules.assertAllocation(scs.studentId, selectionCycleId, pref.domainId); }
+          catch (error) { if (!(error instanceof BadRequestException)) throw error; failedDomainRules.push(pref.domain.code); continue; }
+        }
         for (const batch of pref.domain.trainingBatches) {
           const claimed = await this.prisma.$transaction(async (tx) => {
             const updated = await tx.$executeRaw`
@@ -119,18 +126,19 @@ export class AllocationService {
       }
 
       if (!allocated) {
+        const failureReason = failedDomainRules.length ? `Active selection rules prevent placement in: ${failedDomainRules.join(', ')}; other preferred domains have no capacity` : 'All preferred domains at capacity';
         await this.prisma.allocation.create({
           data: {
             studentId: scs.studentId,
             selectionCycleId,
             status: 'MANUAL_REVIEW',
-            failureReason: 'All preferred domains at capacity',
+            failureReason,
           },
         });
 
-        await this.writeAudit(scs.studentId, selectionCycleId, 'ALLOCATION', 'ADMIN_REVIEW', actorId, 'SYSTEM', 'No preferred domain had capacity');
+        await this.writeAudit(scs.studentId, selectionCycleId, 'ALLOCATION', 'ADMIN_REVIEW', actorId, 'SYSTEM', failureReason);
 
-        results.push({ studentId: scs.studentId, status: 'MANUAL_REVIEW', reason: 'All preferred domains at capacity' });
+        results.push({ studentId: scs.studentId, status: 'MANUAL_REVIEW', reason: failureReason });
       }
     }
 
@@ -182,6 +190,8 @@ export class AllocationService {
       }
       throw new BadRequestException('Student already has an allocation for this cycle');
     }
+
+    if (this.customRules) await this.customRules.assertAllocation(student.id, selectionCycleId, domain.id);
 
     for (const batch of domain.trainingBatches) {
       const allocation = await this.prisma.$transaction(async (tx) => {
@@ -303,6 +313,7 @@ export class AllocationService {
       throw new BadRequestException(`Cannot approve allocation with status ${allocation.status}`);
     }
     if (allocation.isFrozen) throw new BadRequestException('Allocation is frozen');
+    if (this.customRules && allocation.domainId) await this.customRules.assertAllocation(allocation.studentId, allocation.selectionCycleId, allocation.domainId);
 
     const updated = await this.prisma.allocation.update({
       where: { id: allocationId },

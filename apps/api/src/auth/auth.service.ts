@@ -10,6 +10,7 @@ import {
   createHmac,
   randomBytes,
   scryptSync,
+  scrypt,
   timingSafeEqual,
 } from 'crypto';
 import { PrismaService } from '../common/prisma.service';
@@ -34,15 +35,22 @@ export class AuthService {
 
   async login(email: string, password: string) {
     const identifier = email.trim();
-    // Register-number login resolves only the account linked to that student.
-    // Do not fall back to names or serial numbers, which are not unique identifiers.
+    // Explicit roll logins replace register-number login without changing identity.
+    const rollAccount = !identifier.includes('@')
+      ? await this.prisma.user.findUnique({ where: { loginIdentifier: identifier.toUpperCase() }, include: { student: true } })
+      : null;
     const student = !identifier.includes('@')
+      && !rollAccount
       ? await this.prisma.student.findUnique({ where: { registerNumber: identifier.toUpperCase() }, include: { user: true } })
       : null;
     const user = identifier.includes('@')
       ? await this.prisma.user.findUnique({ where: { email: identifier.toLowerCase() } })
-      : student?.isActive && student.user?.role === 'STUDENT' ? student.user : null;
-    if (!user || !user.isActive || !this.verifyPassword(password, user.password)) {
+      : rollAccount?.role === 'STUDENT' && rollAccount.student?.isActive ? rollAccount
+      : student?.isActive && student.user?.role === 'STUDENT' && !student.user.loginIdentifier ? student.user : null;
+    if (identifier.includes('@') && user?.role === 'STUDENT' && user.loginIdentifier) {
+      throw new UnauthorizedException('Use your roll number to sign in');
+    }
+    if (!user || !user.isActive || !await this.verifyPassword(password, user.password)) {
       throw new UnauthorizedException('Invalid login ID or password');
     }
 
@@ -63,6 +71,7 @@ export class AuthService {
         role: user.role,
         studentId: user.studentId,
         facultyDomainId: user.facultyDomainId,
+        loginIdentifier: user.loginIdentifier ?? (user.role === 'STUDENT' ? student?.registerNumber : user.email),
       },
     };
   }
@@ -182,7 +191,7 @@ export class AuthService {
       facultyDomainId: user.facultyDomainId,
       facultyDomainCode: user.facultyDomain?.code ?? null,
       facultyDomainName: user.facultyDomain?.name ?? null,
-      loginIdentifier: user.role === 'STUDENT' ? user.student?.registerNumber ?? user.email : user.email,
+      loginIdentifier: user.role === 'STUDENT' ? user.loginIdentifier ?? user.student?.registerNumber ?? user.email : user.email,
     };
   }
 
@@ -197,7 +206,7 @@ export class AuthService {
     return Boolean(value && expected && this.safeEqual(value, expected));
   }
 
-  private verifyPassword(password: string, stored: string) {
+  private async verifyPassword(password: string, stored: string) {
     const parts = stored.split('$');
     if (parts.length !== 3 || parts[0] !== 'scrypt') {
       const demo = (process.env.DEMO_MODE ?? 'false').toLowerCase() === 'true';
@@ -206,7 +215,7 @@ export class AuthService {
 
     const salt = parts[1];
     const expected = parts[2];
-    const derived = scryptSync(password, salt, 64).toString('hex');
+    const derived = await new Promise<string>((resolve, reject) => scrypt(password, salt, 64, (error, key) => error ? reject(error) : resolve(key.toString('hex'))));
     return this.safeEqual(derived, expected);
   }
 

@@ -1,7 +1,7 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
 import { validateSync } from 'class-validator';
-import { randomUUID } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import ExcelJS from 'exceljs';
 import { Readable } from 'stream';
 import { Project1ResultsDto, Project2ImportDto, Project8ResultsDto } from './dto';
@@ -17,6 +17,8 @@ export class IntegrationsService {
   ) {}
 
   async importProject2(payload: Project2ImportDto, idempotencyKey: string) {
+    const cached = this.checkRequest(idempotencyKey, 'PROJECT_2', payload);
+    if (cached) return cached;
     const result = this.once(
       idempotencyKey,
       'PROJECT_2',
@@ -28,10 +30,12 @@ export class IntegrationsService {
 
     const official = await this.official.importProject2(payload);
 
-    return { ...result, official };
+    return this.cacheRequest(idempotencyKey, 'PROJECT_2', payload, { ...result, official });
   }
 
   async importProject1(payload: Project1ResultsDto, idempotencyKey: string) {
+    const cached = this.checkRequest(idempotencyKey, 'PROJECT_1', payload);
+    if (cached) return cached;
     const result = this.once(
       idempotencyKey,
       'PROJECT_1',
@@ -56,10 +60,12 @@ export class IntegrationsService {
 
     const official = await this.official.importProject1(payload);
 
-    return { ...result, official };
+    return this.cacheRequest(idempotencyKey, 'PROJECT_1', payload, { ...result, official });
   }
 
   async importProject8(payload: Project8ResultsDto, idempotencyKey: string) {
+    const cached = this.checkRequest(idempotencyKey, 'PROJECT_8', payload);
+    if (cached) return cached;
     const result = this.once(
       idempotencyKey,
       'PROJECT_8',
@@ -84,10 +90,13 @@ export class IntegrationsService {
 
     const official = await this.official.importProject8(payload);
 
-    return { ...result, official };
+    return this.cacheRequest(idempotencyKey, 'PROJECT_8', payload, { ...result, official });
   }
 
   async importSpreadsheet(buffer: Buffer, filename: string, idempotencyKey: string) {
+    const fingerprint = {filename, sha256:createHash('sha256').update(buffer).digest('hex')};
+    const cached = this.checkRequest(idempotencyKey, 'EXCEL', fingerprint);
+    if (cached) return cached;
     const workbook = new ExcelJS.Workbook();
     if (filename.toLowerCase().endsWith('.csv')) {
       await workbook.csv.read(Readable.from(buffer));
@@ -157,7 +166,29 @@ export class IntegrationsService {
 
     const official = await this.official.importProject2(payload);
 
-    return { ...result, official };
+    return this.cacheRequest(idempotencyKey, 'EXCEL', fingerprint, { ...result, official });
+  }
+
+  private requestFingerprint(source: string, payload: unknown) {
+    const stable = (value: unknown): unknown => Array.isArray(value) ? value.map(stable) : value && typeof value === 'object'
+      ? Object.fromEntries(Object.entries(value).filter(([,v])=>v!==undefined).sort(([a],[b])=>a.localeCompare(b)).map(([k,v])=>[k,stable(v)])) : value;
+    return createHash('sha256').update(JSON.stringify({source,payload:stable(payload)})).digest('hex');
+  }
+
+  private checkRequest(key: string, source: string, payload: unknown): any {
+    if (!this.store.horizontal) return undefined;
+    if (!key || key.length > 200) throw new BadRequestException('Idempotency-Key must contain 1 to 200 characters');
+    const saved = this.store.idempotency.get(key) as {fingerprint?:string;response?:unknown} | undefined;
+    if (!saved) return undefined;
+    // Legacy imported keys have no fingerprint: do not guess whether a new
+    // payload is identical. Ask the caller to use a new key.
+    if (!saved.fingerprint || saved.fingerprint !== this.requestFingerprint(source,payload)) throw new ConflictException('Idempotency key belongs to another request; use a new key');
+    return {...saved.response as object,duplicate:true};
+  }
+
+  private cacheRequest<T>(key: string, source: string, payload: unknown, response: T): T {
+    if (this.store.horizontal) this.store.idempotency.set(key,{fingerprint:this.requestFingerprint(source,payload),response});
+    return response;
   }
 
   listLogs() {

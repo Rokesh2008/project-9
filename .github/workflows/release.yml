@@ -1,0 +1,48 @@
+name: Approved immutable-image release
+on:
+  workflow_dispatch:
+    inputs:
+      service:
+        type: choice
+        options: [project9-api, project9-web, project9-ai]
+        required: true
+      image:
+        description: Matching project9 Artifact Registry image with @sha256 digest
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: production-release
+  cancel-in-progress: false
+jobs:
+  release:
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@e427ad8a34f8676edf47cf7d7925499adf3eb74f # v2
+      - run: gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
+      - name: Gate release on runtime-image vulnerabilities
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
+        with:
+          image-ref: ${{ inputs.image }}
+          severity: HIGH,CRITICAL
+          exit-code: '1'
+          hide-progress: true
+      - name: Verify candidate before changing production traffic
+        env:
+          TARGET_SERVICE: ${{ inputs.service }}
+          TARGET_IMAGE: ${{ inputs.image }}
+        run: bash scripts/deploy-gcp.sh "$TARGET_SERVICE" "$TARGET_IMAGE"

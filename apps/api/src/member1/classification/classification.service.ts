@@ -3,9 +3,12 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { SelectionRulesService } from '../../selection-rules/selection-rules.service';
+import { Prisma } from '@prisma/client';
 import type {
   ClassificationResultContract,
   SelectionAuthorityContract,
@@ -22,6 +25,7 @@ export class ClassificationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    @Optional() private readonly customRules?: SelectionRulesService,
   ) {}
 
   async loadClassificationInputs(
@@ -41,15 +45,18 @@ export class ClassificationService {
       eligibilityResults.map((er) => [er.studentId, er.isEligible]),
     );
 
-    return rankings.map((r) => {
+    return Promise.all(rankings.map(async (r) => {
       const isEligible = eligibilityMap.get(r.studentId) ?? false;
+      const hope = isEligible && this.customRules ? await this.customRules.evaluate(r.studentId, selectionCycleId, null, 'HOPE') : null;
+      const pep = isEligible && this.customRules ? await this.customRules.evaluate(r.studentId, selectionCycleId, null, 'PEP') : null;
       return {
         studentId: r.studentId,
         rank: r.rank,
-        hopeEligible: isEligible,
-        pepEligible: isEligible,
+        hopeEligible: isEligible && (hope?.isEligible ?? true),
+        pepEligible: isEligible && (pep?.isEligible ?? true),
+        ...(hope||pep ? {customEligibility:{hope,pep}} : {}),
       };
-    });
+    }));
   }
 
   async resolveSelectionAuthority(
@@ -98,8 +105,9 @@ export class ClassificationService {
     return entries.map((e) => ({
       studentId: e.studentId,
       rank: e.rank,
-      hopeEligible: e.isEligible,
-      pepEligible: e.isEligible,
+      hopeEligible: e.hopeEligible ?? e.isEligible,
+      pepEligible: e.pepEligible ?? e.isEligible,
+      ...(e.customEligibility ? {customEligibility:e.customEligibility} : {}),
     }));
   }
 
@@ -215,12 +223,14 @@ export class ClassificationService {
           selectionCycleId,
           snapshotId: authority.snapshotId!,
           program: cs.program,
+          customEligibility: cs.customEligibility ? cs.customEligibility as Prisma.InputJsonValue : Prisma.JsonNull,
           rank: cs.rank,
           status: 'CLASSIFIED',
         },
         update: {
           snapshotId: authority.snapshotId!,
           program: cs.program,
+          customEligibility: cs.customEligibility ? cs.customEligibility as Prisma.InputJsonValue : Prisma.JsonNull,
           rank: cs.rank,
           status: 'CLASSIFIED',
           classifiedAt: new Date(),
@@ -360,11 +370,13 @@ export class ClassificationService {
           studentId: cs.studentId,
           selectionCycleId,
           program: cs.program,
+          customEligibility: cs.customEligibility ? cs.customEligibility as Prisma.InputJsonValue : Prisma.JsonNull,
           rank: cs.rank,
           status: 'CLASSIFIED',
         },
         update: {
           program: cs.program,
+          customEligibility: cs.customEligibility ? cs.customEligibility as Prisma.InputJsonValue : Prisma.JsonNull,
           rank: cs.rank,
           status: 'CLASSIFIED',
           classifiedAt: new Date(),

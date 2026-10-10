@@ -1,27 +1,91 @@
-name: CI
-
+name: Quality and security gates
 on:
   push:
-    branches: [main, develop]
+    branches: [main, develop, member3]
   pull_request:
-    branches: [main, develop]
-
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
-  repository-check:
+  application:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci-test-only-password
+          POSTGRES_DB: project9_ci_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:ci-test-only-password@localhost:5432/project9_ci_test
+      AUTH_REQUIRED: 'false'
+      PERSISTENCE_DRIVER: file
+      STATE_FILE: /tmp/project9-ci-state.json
+      ENABLE_FREEZE_SCHEDULER: 'false'
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Validate repository structure
-        shell: bash
-        run: |
-          test -f README.md
-          test -f CONTRIBUTING.md
-          test -f PROJECT_9_MASTER_ARCHITECTURE.md
-          test -f .env.example
-          test -f docker-compose.yml
-          test -d apps
-          test -d packages
-          test -d prisma
-          test -d docs
-          test -d docker
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run prisma:deploy -w apps/api
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm test
+      - run: npm audit --omit=dev --audit-level=high
+      - run: npm sbom --omit=dev --sbom-format=cyclonedx > runtime-sbom.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: runtime-sbom
+          path: runtime-sbom.json
+          retention-days: 14
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r services/ai/requirements-dev.txt pip-audit
+      - run: python -m pytest services/ai/test_app.py -q
+      - run: python -m pip_audit -r services/ai/requirements.txt
+  supply-chain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Scan source, configuration and committed secrets
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          severity: HIGH,CRITICAL
+          exit-code: '1'
+          hide-progress: true
+  static-analysis:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: github/codeql-action/init@87ef0dc97def48aa960fbf026a2563ee9dbdb470 # v3
+        with:
+          languages: javascript-typescript, python
+          build-mode: none
+      - uses: github/codeql-action/analyze@87ef0dc97def48aa960fbf026a2563ee9dbdb470 # v3

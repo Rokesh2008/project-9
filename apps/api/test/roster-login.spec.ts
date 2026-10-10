@@ -33,7 +33,7 @@ describe('Second-year roster accounts', () => {
     expect(result.user.studentId).toBe('student-1');
     expect(auth.verifyToken(result.accessToken).role).toBe('STUDENT');
     expect(prisma.student.findUnique).toHaveBeenCalledWith({ where: { registerNumber: '312325000001' }, include: { user: true } });
-    expect(prisma.user.findUnique).not.toHaveBeenCalled();
+    expect(prisma.user.findUnique).toHaveBeenCalledWith({ where: { loginIdentifier: '312325000001' }, include: { student: true } });
     await expect(auth.login('312325000001', 'wrong')).rejects.toThrow('Invalid login ID or password');
   });
 
@@ -61,7 +61,8 @@ describe('Second-year roster accounts', () => {
       student: { findUnique: jest.fn().mockResolvedValue({ id: 'student-1', studentId: '312325000001', name: 'Roster Student',
         registerNumber: '312325000001', batch: { batchIdentifier: 'SJCE-II-2026-2027-CSE', department: { name: 'CSE' } } }) },
       studentCycleStatus: { findFirst: jest.fn().mockResolvedValue(null) },
-      assessmentResult: { findFirst: jest.fn().mockResolvedValue(null) },
+      assessmentResult: { findFirst: jest.fn().mockResolvedValue(null), findMany: jest.fn().mockResolvedValue([]) },
+      readinessAssessment: { findFirst: jest.fn().mockResolvedValue(null) },
     };
     const profile = await new ProfilesService(prisma as any).mine({ role: 'STUDENT', studentId: 'student-1' } as AuthPrincipal);
     expect(profile.outcome).toBe('NOT_IN_CYCLE');

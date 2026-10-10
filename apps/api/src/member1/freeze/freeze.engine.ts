@@ -13,6 +13,9 @@ export interface SnapshotStudentInput {
   percentile: number | null;
   parameterScores: Record<string, ParameterScoreDetail>;
   isEligible: boolean;
+  hopeEligible?: boolean;
+  pepEligible?: boolean;
+  customEligibility?: unknown;
   eligibilityFailures: string[] | null;
   program: string | null;
   tieBreakApplied: boolean;

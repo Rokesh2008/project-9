@@ -12,6 +12,7 @@ import {
   Res,
   UploadedFile,
   UseInterceptors,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBody, ApiConsumes, ApiHeader, ApiTags } from '@nestjs/swagger';
@@ -26,10 +27,20 @@ import { OfficialReadService } from './official-read.service';
 import { ReportsService } from './reports.service';
 import { Store } from './store';
 import { AuthPrincipal } from './auth/auth.service';
+import { PrismaService } from './common/prisma.service';
 
 @Controller()
 export class HealthController {
+  constructor(private readonly prisma: PrismaService) {}
   @Get('health') health() { return { status: 'ok', service: 'project9-member3-api' }; }
+  @Get('health/ready') async ready() {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      await Promise.race([this.prisma.$queryRaw`SELECT 1`, new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('Readiness timeout')), 3000); })]);
+      return { status: 'ready' };
+    } catch { throw new ServiceUnavailableException('Database unavailable'); }
+    finally { if (timer) clearTimeout(timer); }
+  }
 }
 
 @ApiTags('Integrations')

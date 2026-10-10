@@ -12,11 +12,20 @@ export class AiService {
 
     let analysis: AdvisoryAnalysis;
     try {
-      const response = await fetch(`${process.env.AI_SERVICE_URL ?? 'http://localhost:8000'}/analyze`, {
+      const serviceUrl = process.env.AI_SERVICE_URL ?? 'http://localhost:8000';
+      const headers: Record<string, string> = { 'content-type': 'application/json' };
+      if (process.env.AI_CLOUD_RUN_AUTH === 'true') {
+        const token = await fetch(`http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/identity?audience=${encodeURIComponent(serviceUrl)}`, {
+          headers: { 'Metadata-Flavor': 'Google' }, signal: AbortSignal.timeout(2000),
+        });
+        if (!token.ok) throw new Error('Unable to authenticate advisory service');
+        headers.authorization = `Bearer ${await token.text()}`;
+      }
+      const response = await fetch(`${serviceUrl}/analyze`, {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers,
         body: JSON.stringify(this.safeFeatures(student)),
-        signal: AbortSignal.timeout(2500),
+        signal: AbortSignal.timeout(process.env.AI_CLOUD_RUN_AUTH === 'true' ? 20000 : 2500),
       });
       if (!response.ok) throw new Error(`AI service returned ${response.status}`);
       analysis = { ...(await response.json()) as Omit<AdvisoryAnalysis, 'studentId' | 'generatedAt'>, studentId, generatedAt: new Date().toISOString(), advisoryOnly: true };

@@ -1,0 +1,17 @@
+.git
+**/node_modules
+**/.env
+**/.env.*
+**/data
+**/dist
+**/coverage
+**/__pycache__
+**/.pytest_cache
+**/.venv
+**/private-backups
+**/*.xlsx
+**/*.xls
+**/*.csv
+**/*.zip
+**/*.log
+**/*.tsbuildinfo

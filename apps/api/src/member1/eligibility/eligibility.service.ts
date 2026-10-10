@@ -2,10 +2,12 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { SelectionRulesService } from '../../selection-rules/selection-rules.service';
 import type { EligibilityResultContract } from '../../common/contracts/member1.contract';
 import {
   evaluateEligibility,
@@ -20,6 +22,7 @@ export class EligibilityService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    @Optional() private readonly customRules?: SelectionRulesService,
   ) {}
 
   // ──────────────────────────────────────────
@@ -211,6 +214,7 @@ export class EligibilityService {
       }
     }
 
+    if (this.customRules) Object.assign(context, await this.customRules.readinessContext(studentId));
     return context;
   }
 
@@ -363,6 +367,7 @@ export class EligibilityService {
     ruleVersionId?: string,
     actorId: string = 'system',
     studentId?: string,
+    enrolledStudentIds?: string[],
   ): Promise<EligibilityResultContract[]> {
     const cycle = await this.prisma.selectionCycle.findUnique({
       where: { id: selectionCycleId },
@@ -408,7 +413,7 @@ export class EligibilityService {
       students = [{ id: student.id }];
     } else {
       students = await this.prisma.student.findMany({
-        where: { isActive: true },
+        where: { isActive: true, ...(enrolledStudentIds ? { id: { in: enrolledStudentIds } } : {}) },
         select: { id: true },
       });
     }

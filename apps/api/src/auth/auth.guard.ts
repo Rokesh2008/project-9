@@ -68,6 +68,7 @@ export class AuthGuard implements CanActivate {
   private isPublicPath(path: string) {
     return (
       path === '/api/health' ||
+      path === '/api/health/ready' ||
       path.startsWith('/api/docs') ||
       path === '/api/auth/login' ||
       path === '/api/auth/bootstrap'
@@ -76,7 +77,7 @@ export class AuthGuard implements CanActivate {
 
   private assertAccess(path: string, method: string, role: string) {
     const action = method.toUpperCase();
-    if (path.startsWith('/api/accounts')) {
+    if (path.startsWith('/api/accounts') || path.startsWith('/api/cycle-management')) {
       if (role !== 'ADMIN') throw new ForbiddenException('Administrator role required');
       return;
     }
@@ -85,6 +86,8 @@ export class AuthGuard implements CanActivate {
       throw new ForbiddenException('Students may view only their own selection profile');
     }
     if (role === 'PEP_STAFF') {
+      // This service re-checks the authenticated faculty domain on every mutation.
+      if (path === '/api/selection-rules' || path.startsWith('/api/selection-rules/')) return;
       const facultyRead = action === 'GET' && (
         path === '/api/auth/me' ||
         path === '/api/profiles' ||

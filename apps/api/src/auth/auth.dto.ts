@@ -1,13 +1,15 @@
-import { IsEmail, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsString, MinLength, MaxLength } from 'class-validator';
 
 export class LoginDto {
   // Retain the email field for API compatibility; it also accepts a register number.
   @IsString()
   @MinLength(1)
+  @MaxLength(254)
   email!: string;
 
   @IsString()
   @MinLength(1)
+  @MaxLength(256)
   password!: string;
 }
 

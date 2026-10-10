@@ -1,4 +1,5 @@
-import { Body, Controller, Headers, Post } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Param, Post, Req } from '@nestjs/common';
+import { AuthPrincipal } from './auth/auth.service';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { IsString } from 'class-validator';
 import { SelectionPipelineService } from './selection-pipeline.service';
@@ -13,6 +14,12 @@ class RunSelectionPipelineDto {
 @Controller('selection-pipeline')
 export class SelectionPipelineController {
   constructor(private readonly pipeline: SelectionPipelineService) {}
+
+  @Get('demo/:id')
+  demoStatus(@Param('id') id: string) { return this.pipeline.demoStatus(id); }
+
+  @Post('demo/:id/run')
+  runDemo(@Param('id') id: string, @Req() request: {user: AuthPrincipal}) { return this.pipeline.runDemo(id, request.user?.sub ?? 'demo-test'); }
 
   @Post('run')
   @ApiOperation({

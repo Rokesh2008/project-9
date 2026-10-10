@@ -85,9 +85,27 @@ enum VerificationStatus {
 // MEMBER 2 - CORE ENTITIES
 // ==========================================
 
+model SelectionRulePolicy {
+  id String @id @default(uuid())
+  selectionCycleId String
+  domainId String?
+  scopeKey String
+  program String @default("BOTH")
+  name String
+  rules Json
+  isActive Boolean @default(false)
+  createdBy String
+  activatedBy String?
+  createdAt DateTime @default(now())
+  activatedAt DateTime?
+
+  @@index([selectionCycleId, scopeKey, program])
+}
+
 model User {
   id        String   @id @default(uuid())
   email     String   @unique
+  loginIdentifier String? @unique
   password  String
   name      String
   role      Role     @default(STUDENT)
@@ -146,6 +164,7 @@ model Student {
   user                   User?
   rosterAllocation       RosterAllocation?
   assessmentResults      AssessmentResult[]
+  readinessAssessments   ReadinessAssessment[]
   credentials            StudentCredential[]
   preferences            StudentPreference[]
   cycleStatuses          StudentCycleStatus[]
@@ -207,6 +226,22 @@ model SelectionCycle {
   hopePepClassifications   HopePepClassification[]
   scoreAuditLogs           ScoreAuditLog[]
   freezeNotificationEvents FreezeNotificationEvent[]
+}
+
+model ReadinessAssessment {
+  id                 String   @id @default(uuid())
+  studentId          String
+  student            Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  sourceResultId     String
+  sourceBatchId      String
+  readinessScore     Float?
+  verificationStatus String
+  parameterScores    Json
+  assessedAt         DateTime
+  createdAt          DateTime @default(now())
+
+  @@unique([studentId, sourceResultId])
+  @@index([studentId, assessedAt])
 }
 
 model AssessmentResult {
@@ -645,6 +680,9 @@ model RankingSnapshotEntry {
   percentile          Float?
   parameterScores     Json
   isEligible          Boolean
+  hopeEligible        Boolean?
+  pepEligible         Boolean?
+  customEligibility   Json?
   eligibilityFailures Json?
   program             String?
   tieBreakApplied     Boolean         @default(false)
@@ -663,6 +701,7 @@ model HopePepClassification {
   snapshotId          String?
   snapshot            RankingSnapshot?     @relation(fields: [snapshotId], references: [id], onDelete: Restrict)
   program             String
+  customEligibility   Json?
   rank                Int
   status              ClassificationStatus @default(CLASSIFIED)
   adminDecisionBy     String?
@@ -745,6 +784,26 @@ model IntegrationSource {
   enabled    Boolean          @default(true)
   lastSeenAt DateTime?
   jobs       IntegrationJob[]
+}
+
+// Compatibility/advisory entities are versioned individually, not one snapshot.
+model SharedStateRecord {
+  namespace String
+  key       String
+  value     Json
+  version   Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@id([namespace, key])
+}
+
+model RateLimitWindow {
+  key       String   @id
+  count     Int
+  expiresAt DateTime
+
+  @@index([expiresAt])
 }
 
 model IntegrationJob {

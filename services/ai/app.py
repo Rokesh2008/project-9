@@ -1,19 +1,20 @@
-from typing import Literal
+from typing import Literal, Annotated
 
 from fastapi import FastAPI
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 app = FastAPI(title="Project 9 Advisory AI", version="1.0.0")
 
 
 class StudentFeatures(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     codingScore: float = Field(ge=0, le=100)
     aptitudeScore: float = Field(ge=0, le=100)
     cgpa: float = Field(ge=0, le=10)
     attendancePercent: float = Field(ge=0, le=100)
     dsaLevel: Literal["BEGINNER", "INTERMEDIATE", "ADVANCED"]
-    preferences: list[str] = Field(max_length=5)
-    completedCertificates: list[str]
+    preferences: list[Annotated[str, Field(max_length=120)]] = Field(max_length=5)
+    completedCertificates: list[Annotated[str, Field(max_length=200)]] = Field(max_length=100)
 
 
 class DomainRecommendation(BaseModel):
