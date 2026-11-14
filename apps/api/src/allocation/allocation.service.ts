@@ -380,22 +380,52 @@ export class AllocationService {
 
   async freeze(allocationId: string, actorId: string, role: string) {
     this.assertAdminRole(role);
-    const allocation = await this.getAllocationOrFail(allocationId);
+
+    const allocation = await this.prisma.allocation.findUnique({ where: { id: allocationId } });
+    if (!allocation) throw new NotFoundException('Allocation not found');
 
     if (allocation.status !== 'APPROVED') {
       throw new BadRequestException('Only approved allocations can be frozen');
     }
     if (allocation.isFrozen) throw new BadRequestException('Allocation is already frozen');
 
-    const updated = await this.prisma.allocation.update({
-      where: { id: allocationId },
-      data: { status: 'FROZEN', isFrozen: true, frozenAt: new Date(), frozenBy: actorId },
-      include: { student: true, domain: true },
+    return this.prisma.$transaction(async (tx) => {
+      // Compare-and-set prevents duplicate or stale freeze requests from changing the record.
+      const changed = await tx.allocation.updateMany({
+        where: { id: allocationId, status: 'APPROVED', isFrozen: false },
+        data: { status: 'FROZEN', isFrozen: true, frozenAt: new Date(), frozenBy: actorId },
+      });
+      if (changed.count !== 1) {
+        throw new BadRequestException('Allocation changed before it could be frozen; refresh and try again');
+      }
+
+      const cycleStatus = await tx.studentCycleStatus.findUnique({
+        where: {
+          studentId_selectionCycleId: {
+            studentId: allocation.studentId,
+            selectionCycleId: allocation.selectionCycleId,
+          },
+        },
+      });
+
+      await tx.workflowAuditLog.create({
+        data: {
+          studentCycleStatusId: cycleStatus?.id ?? null,
+          studentId: allocation.studentId,
+          selectionCycleId: allocation.selectionCycleId,
+          fromState: 'FINALIZED',
+          toState: 'FROZEN',
+          actor: actorId,
+          role,
+          reason: 'Allocation frozen',
+        },
+      });
+
+      return tx.allocation.findUniqueOrThrow({
+        where: { id: allocationId },
+        include: { student: true, domain: true },
+      });
     });
-
-    await this.writeAudit(allocation.studentId, allocation.selectionCycleId, 'FINALIZED', 'FROZEN', actorId, role, 'Allocation frozen');
-
-    return updated;
   }
 
   private async getAllocationOrFail(id: string) {
