@@ -306,7 +306,9 @@ export class AllocationService {
 
   async approve(allocationId: string, actorId: string, role: string, reason: string, facultyDomainId?: string | null) {
     this.assertAdminRole(role);
-    const allocation = await this.getAllocationOrFail(allocationId);
+
+    const allocation = await this.prisma.allocation.findUnique({ where: { id: allocationId } });
+    if (!allocation) throw new NotFoundException('Allocation not found');
     this.assertFacultyAllocation(role, facultyDomainId, allocation.domainId);
 
     if (allocation.status !== 'PENDING_APPROVAL' && allocation.status !== 'MANUAL_REVIEW') {
@@ -315,28 +317,60 @@ export class AllocationService {
     if (allocation.isFrozen) throw new BadRequestException('Allocation is frozen');
     if (this.customRules && allocation.domainId) await this.customRules.assertAllocation(allocation.studentId, allocation.selectionCycleId, allocation.domainId);
 
-    const updated = await this.prisma.allocation.update({
-      where: { id: allocationId },
-      data: { status: 'APPROVED', isFinalized: true, finalizedAt: new Date(), finalizedBy: actorId },
-      include: { student: true, domain: true },
+    return this.prisma.$transaction(async (tx) => {
+      // Compare-and-set ensures only one concurrent approval can finalize this allocation.
+      const changed = await tx.allocation.updateMany({
+        where: {
+          id: allocationId,
+          status: { in: ['PENDING_APPROVAL', 'MANUAL_REVIEW'] },
+          isFrozen: false,
+        },
+        data: { status: 'APPROVED', isFinalized: true, finalizedAt: new Date(), finalizedBy: actorId },
+      });
+      if (changed.count !== 1) {
+        throw new BadRequestException('Allocation changed before approval; refresh and try again');
+      }
+
+      await tx.adminDecision.create({
+        data: {
+          studentId: allocation.studentId,
+          selectionCycleId: allocation.selectionCycleId,
+          decisionType: 'APPROVE_ALLOCATION',
+          reason,
+          actor: actorId,
+          role,
+          targetDomainId: allocation.domainId,
+          targetBatchId: allocation.trainingBatchId,
+        },
+      });
+
+      const cycleStatus = await tx.studentCycleStatus.findUnique({
+        where: {
+          studentId_selectionCycleId: {
+            studentId: allocation.studentId,
+            selectionCycleId: allocation.selectionCycleId,
+          },
+        },
+      });
+
+      await tx.workflowAuditLog.create({
+        data: {
+          studentCycleStatusId: cycleStatus?.id ?? null,
+          studentId: allocation.studentId,
+          selectionCycleId: allocation.selectionCycleId,
+          fromState: 'ADMIN_REVIEW',
+          toState: 'FINALIZED',
+          actor: actorId,
+          role,
+          reason,
+        },
+      });
+
+      return tx.allocation.findUniqueOrThrow({
+        where: { id: allocationId },
+        include: { student: true, domain: true },
+      });
     });
-
-    await this.prisma.adminDecision.create({
-      data: {
-        studentId: allocation.studentId,
-        selectionCycleId: allocation.selectionCycleId,
-        decisionType: 'APPROVE_ALLOCATION',
-        reason,
-        actor: actorId,
-        role,
-        targetDomainId: allocation.domainId,
-        targetBatchId: allocation.trainingBatchId,
-      },
-    });
-
-    await this.writeAudit(allocation.studentId, allocation.selectionCycleId, 'ADMIN_REVIEW', 'FINALIZED', actorId, role, reason);
-
-    return updated;
   }
 
   async reject(allocationId: string, actorId: string, role: string, reason: string, facultyDomainId?: string | null) {
