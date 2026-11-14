@@ -341,41 +341,74 @@ export class AllocationService {
 
   async reject(allocationId: string, actorId: string, role: string, reason: string, facultyDomainId?: string | null) {
     this.assertAdminRole(role);
-    const allocation = await this.getAllocationOrFail(allocationId);
-    this.assertFacultyAllocation(role, facultyDomainId, allocation.domainId);
 
-    if (allocation.status === 'FROZEN') throw new BadRequestException('Cannot reject a frozen allocation');
-    if (allocation.status === 'REJECTED') throw new BadRequestException('Allocation already rejected');
-    if (allocation.isFrozen) throw new BadRequestException('Allocation is frozen');
+    return this.prisma.$transaction(async (tx) => {
+      const allocation = await tx.allocation.findUnique({ where: { id: allocationId } });
+      if (!allocation) throw new NotFoundException('Allocation not found');
+      this.assertFacultyAllocation(role, facultyDomainId, allocation.domainId);
 
-    if (allocation.trainingBatchId) {
-      await this.prisma.trainingBatch.update({
-        where: { id: allocation.trainingBatchId },
-        data: { currentAllocated: { decrement: 1 } },
+      if (allocation.status === 'FROZEN') throw new BadRequestException('Cannot reject a frozen allocation');
+      if (allocation.status === 'REJECTED') throw new BadRequestException('Allocation already rejected');
+      if (allocation.isFrozen) throw new BadRequestException('Allocation is frozen');
+
+      // Compare-and-set prevents two concurrent rejection requests from releasing the same seat.
+      const changed = await tx.allocation.updateMany({
+        where: { id: allocationId, status: allocation.status, isFrozen: false },
+        data: { status: 'REJECTED', failureReason: reason },
       });
-    }
+      if (changed.count !== 1) {
+        throw new BadRequestException('Allocation changed before rejection; refresh and try again');
+      }
 
-    const updated = await this.prisma.allocation.update({
-      where: { id: allocationId },
-      data: { status: 'REJECTED', failureReason: reason },
-      include: { student: true, domain: true },
+      if (allocation.trainingBatchId) {
+        const released = await tx.trainingBatch.updateMany({
+          where: { id: allocation.trainingBatchId, currentAllocated: { gt: 0 } },
+          data: { currentAllocated: { decrement: 1 } },
+        });
+        if (released.count !== 1) {
+          throw new BadRequestException('Training batch allocation count is inconsistent; the seat could not be released');
+        }
+      }
+
+      await tx.adminDecision.create({
+        data: {
+          studentId: allocation.studentId,
+          selectionCycleId: allocation.selectionCycleId,
+          decisionType: 'REJECT_ALLOCATION',
+          reason,
+          actor: actorId,
+          role,
+          targetDomainId: allocation.domainId,
+        },
+      });
+
+      const cycleStatus = await tx.studentCycleStatus.findUnique({
+        where: {
+          studentId_selectionCycleId: {
+            studentId: allocation.studentId,
+            selectionCycleId: allocation.selectionCycleId,
+          },
+        },
+      });
+
+      await tx.workflowAuditLog.create({
+        data: {
+          studentCycleStatusId: cycleStatus?.id ?? null,
+          studentId: allocation.studentId,
+          selectionCycleId: allocation.selectionCycleId,
+          fromState: 'ADMIN_REVIEW',
+          toState: 'ADMIN_REVIEW',
+          actor: actorId,
+          role,
+          reason: `Rejected: ${reason}`,
+        },
+      });
+
+      return tx.allocation.findUniqueOrThrow({
+        where: { id: allocationId },
+        include: { student: true, domain: true },
+      });
     });
-
-    await this.prisma.adminDecision.create({
-      data: {
-        studentId: allocation.studentId,
-        selectionCycleId: allocation.selectionCycleId,
-        decisionType: 'REJECT_ALLOCATION',
-        reason,
-        actor: actorId,
-        role,
-        targetDomainId: allocation.domainId,
-      },
-    });
-
-    await this.writeAudit(allocation.studentId, allocation.selectionCycleId, 'ADMIN_REVIEW', 'ADMIN_REVIEW', actorId, role, `Rejected: ${reason}`);
-
-    return updated;
   }
 
   async freeze(allocationId: string, actorId: string, role: string) {

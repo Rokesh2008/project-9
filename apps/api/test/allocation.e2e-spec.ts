@@ -225,7 +225,7 @@ describe('Member 2 – Allocation workflow', () => {
       .expect(403);
   });
 
-  it('rejected allocation has correct status', async () => {
+  it('rejecting an allocation releases its seat and records the decision atomically', async () => {
     await request(app.getHttpServer())
       .post('/api/allocations/generate')
       .set('x-actor-id', 'admin-1')
@@ -233,14 +233,40 @@ describe('Member 2 – Allocation workflow', () => {
       .expect(201);
 
     const allocations = await prisma.allocation.findMany({ where: { selectionCycleId: cycleId } });
+    const alloc = allocations.find((candidate) => candidate.trainingBatchId);
+    expect(alloc).toBeDefined();
+
+    const batchBefore = await prisma.trainingBatch.findUnique({ where: { id: alloc!.trainingBatchId! } });
+    expect(batchBefore).not.toBeNull();
 
     const res = await request(app.getHttpServer())
-      .post(`/api/allocations/${allocations[0].id}/reject`)
+      .post(`/api/allocations/${alloc!.id}/reject`)
       .set('x-role', 'ADMIN')
       .send({ actorId: 'admin-1', reason: 'Not suitable' })
       .expect(201);
 
     expect(res.body.status).toBe('REJECTED');
+
+    const batchAfter = await prisma.trainingBatch.findUnique({ where: { id: alloc!.trainingBatchId! } });
+    expect(batchAfter!.currentAllocated).toBe(batchBefore!.currentAllocated - 1);
+
+    const decision = await prisma.adminDecision.findFirst({
+      where: {
+        studentId: alloc!.studentId,
+        selectionCycleId: cycleId,
+        decisionType: 'REJECT_ALLOCATION',
+      },
+    });
+    expect(decision).not.toBeNull();
+
+    const audit = await prisma.workflowAuditLog.findFirst({
+      where: {
+        studentId: alloc!.studentId,
+        selectionCycleId: cycleId,
+        reason: 'Rejected: Not suitable',
+      },
+    });
+    expect(audit).not.toBeNull();
   });
 
   it('frozen allocation cannot be modified', async () => {

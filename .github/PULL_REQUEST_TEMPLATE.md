@@ -9,7 +9,7 @@
 - [ ] Coordinated with team
 
 ## Checklist
-- [ ] Target is `develop`
+- [ ] Target is `main`
 - [ ] No secrets committed
 - [ ] Checks pass
 - [ ] Docs updated if needed

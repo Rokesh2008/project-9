@@ -79,4 +79,4 @@ When `AUTH_REQUIRED=true`:
 
 ## Branch integration
 
-The final integrated branch is built from Member 3 main + Member 2 allocation/workflow + Member 1 eligibility/ranking. Feature work should now branch from the integrated main/develop baseline rather than stacking new work on the old member branches.
+The final integrated branch is built from Member 3 main + Member 2 allocation/workflow + Member 1 eligibility/ranking. Feature work should branch from the latest integrated main baseline rather than stacking new work on old member branches.
